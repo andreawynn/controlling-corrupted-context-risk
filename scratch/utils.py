@@ -125,10 +125,6 @@ def get_scores(all_intermediate_outputs, score_fn, filepath=None):
             json.dump(scores, file, default=lambda o: float(o) if isinstance(o, np.float32) else o)
 
     return scores
-
-
-def get_toxicity_prompt(i):
-    return toxicity_prompts_dataset[i]['prompt']['text']
     
 
 def detoxify_score(text):
