@@ -4,6 +4,8 @@ import torch
 from detoxify import Detoxify
 import requests
 import matplotlib.pyplot as plt
+import os
+import numpy as np
 
 
 def get_intermediate_embeddings(model, inputs, max_length):
@@ -75,9 +77,17 @@ def get_intermediate_text_outputs(model, tokenizer, intermediate_outputs):
 # print_every: how often to print a progress tracker
 # filepath: the FOLDER (not full filename) for saving out data. should include model name!
 # score_fn: a function that, given a single string of text, scores the text
-def get_all_intermediate_text_dataset(model, tokenizer, get_prompt, limit, print_every=100): 
+def get_scores(model, tokenizer, device, get_prompt, score_fn, limit, filepath=None, print_every=100): 
+    # Map each layer to a list of scores for each prompt. 
+    # Score has to be per prompt; e.g. toxicity of prompt, correctness, etc. 
+    # This is important since we later will want to do things like manage risk over the entire population. 
+    scores = { 'o_proj': {}, 'post_attention_layernorm': {}}
+
+    if filepath is not None:
+        if not os.path.exists(filepath):
+            os.makedirs(filepath)
+
     # Format: each layer maps to a list of the outputs per prompt. 
-    all_intermediate_outputs = {}
     for i in range(limit):
         # Progress tracker
         if i % print_every == 0:
@@ -88,41 +98,25 @@ def get_all_intermediate_text_dataset(model, tokenizer, get_prompt, limit, print
         intermediate_embeddings = get_intermediate_embeddings(model, inputs, 50)
         intermediate_text = get_intermediate_text_outputs(model, tokenizer, intermediate_embeddings)
         
+        # Get scores for all intermediate outputs for this iteration
         for layer_name, text in intermediate_text.items():
-            if layer_name not in all_intermediate_outputs:
-                all_intermediate_outputs[layer_name] = []
-            all_intermediate_outputs[layer_name].append(text)
-
-    return all_intermediate_outputs
-
-
-def get_scores(all_intermediate_outputs, score_fn, filepath=None):
-    # Map each layer to a list of scores for each prompt. 
-    # Score has to be per prompt; e.g. toxicity of prompt, correctness, etc. 
-    # This is important since we later will want to do things like manage risk over the entire population. 
-    scores = { 'o_proj': {}, 'post_attention_layernorm': {}}
+            # Get the score using the provided function for the text output from each layer. 
+            # If classification/accuracy, score is 0 or 1 (or appropriate equivalent) for the prompt. 
+            score = score_fn(text)
+            if 'o_proj' in layer_name:
+                if layer_name not in scores['o_proj']:
+                    scores['o_proj'][layer_name] = []
+                scores['o_proj'][layer_name].append(score)
+            else:
+                if layer_name not in scores['post_attention_layernorm']:
+                    scores['post_attention_layernorm'][layer_name] = []
+                scores['post_attention_layernorm'][layer_name].append(score)
     
-    # Get the score using the provided function for the text output from each layer. 
-    # If classification/accuracy, score is 0 or 1 (or appropriate equivalent) for the prompt. 
-    for layer_name, text in intermediate_text.items():
-        score = score_fn(text)
-        if 'o_proj' in layer_name:
-            if layer_name not in scores['o_proj']:
-                scores['o_proj'][layer_name] = []
-            scores['o_proj'][layer_name].append(score)
-        else:
-            if layer_name not in scores['post_attention_layernorm']:
-                scores['post_attention_layernorm'][layer_name] = []
-            scores['post_attention_layernorm'][layer_name].append(score)
-    
-    # Save out the scores in a file
-    if filepath is not None:
-        if not os.path.exists(filepath):
-            os.makedirs(filepath)
-
-        filename = filepath + 'limit_' + str(limit) + '.json'
-        with open(filename, 'w') as file:
-            json.dump(scores, file, default=lambda o: float(o) if isinstance(o, np.float32) else o)
+        # Save out the scores in a file (do this every iteration!)
+        if filepath is not None:
+            filename = filepath + 'limit_' + str(limit) + '.json'
+            with open(filename, 'w') as file:
+                json.dump(scores, file, default=lambda o: float(o) if isinstance(o, np.float32) else o)
 
     return scores
     
