@@ -31,7 +31,7 @@ def get_intermediate_output_single_prompt(prompt, path, filename, model, tokeniz
     columns = ['prompt', 'full_model']
     n_layers = len(model.model.layers)
     for i in range(1, n_layers): 
-        columns.append(i)
+        columns.append(str(i))
     
     # Tokenize prompt
     inputs = tokenizer(prompt, return_attention_mask=True, return_tensors="pt").to(model.device)
@@ -44,11 +44,11 @@ def get_intermediate_output_single_prompt(prompt, path, filename, model, tokeniz
         if exit_layer == 0:
             single_prompt_results['full_model'] = intermediate_output
         else:
-            single_prompt_results[exit_layer] = intermediate_output
+            single_prompt_results[str(exit_layer)] = intermediate_output
     
     # Put each element in a list so it can be parsed to a DataFrame row
-    for i in single_prompt_results.keys():
-        single_prompt_results[i] = [single_prompt_results[i]]
+    for c in columns:
+        single_prompt_results[c] = [single_prompt_results[c]]
     single_prompt = pd.DataFrame(single_prompt_results, columns=columns)
     
     # Save the data
