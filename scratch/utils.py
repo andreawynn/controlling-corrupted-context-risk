@@ -6,20 +6,108 @@ import requests
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import pandas as pd
 import transformers
+from typing import List, Optional, Tuple
+
+def detoxify_score(text):
+    detoxify_model = Detoxify('original')
+    return detoxify_model.predict(text)['toxicity']
 
 
-# Based on the implementation from: https://github.com/facebookresearch/LayerSkip/blob/main/self_speculation/llama_model_utils.py#L213
-def get_next_logits(
+def perspective_score(text):
+    url = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
+    data = {
+        "comment": {"text": text},
+        "languages": ["en"],
+        "requestedAttributes": {"TOXICITY": {}}
+    }
+    response = requests.post(url, params={"key": api_key}, json=data)
+    return response.json()["attributeScores"]["TOXICITY"]["summaryScore"]["value"]
+    
+
+def get_intermediate_output_single_prompt(prompt, path, filename, model, tokenizer, max_new_tokens=50):
+    single_prompt_results = {'prompt': prompt}
+    
+    # Tokenize prompt
+    inputs = tokenizer(prompt, return_attention_mask=True, return_tensors="pt").to(model.device)
+    input_ids = torch.tensor(inputs['input_ids']).to(model.device)
+    
+    # Compute outputs at each intermediate layer
+    for exit_layer in range(len(model.model.layers)):
+        output_ids = decode_logits(model=model, input_ids=input_ids, max_new_tokens=max_new_tokens, exit_layer=exit_layer, eos_token_id=tokenizer.eos_token_id)
+        intermediate_output = tokenizer.decode(output_ids, skip_special_tokens=True)
+        if exit_layer == 0:
+            single_prompt_results['full_model'] = intermediate_output
+        else:
+            single_prompt_results[exit_layer] = intermediate_output
+    
+    # Put each element in a list so it can be parsed to a DataFrame row
+    for i in single_prompt_results.keys():
+        single_prompt_results[i] = [single_prompt_results[i]]
+    single_prompt = pd.DataFrame(single_prompt_results, columns=single_prompt_results.keys())
+    
+    # Save the data
+    if os.path.exists(path + filename):
+        results = pd.concat([pd.read_csv(path + filename), single_prompt])
+    else:
+        results = single_prompt
+    results.to_csv(path + filename, index=False)
+
+
+# Decode the logits according to an autoregressive strategy
+# Based on the following: https://github.com/facebookresearch/LayerSkip/blob/main/self_speculation/autoregressive_generator.py#L45
+def decode_logits(model, input_ids, max_new_tokens, exit_layer, eos_token_id, past_key_values=None, sample=True, 
+                  temperature: Optional[float] = 0.7,
+                  top_k: Optional[int] = 50,
+                  top_p: Optional[float] = 0.95):
+    output_ids = []
+    exit_query_cache = None
+    # Generate new tokens in a loop. 
+    for _ in range(max_new_tokens):
+        if exit_layer > 0:
+            model_output = forward_early(
+                model,
+                input_ids,
+                past_key_values,
+                exit_layer,
+                exit_query_cache,
+            )
+        else:
+            model_output = forward(
+                model,
+                input_ids,
+                past_key_values,
+            )
+        logits = model_output['logits']
+        past_key_values = model_output['past_key_values']
+        next_token, _ = decode_next_token(logits=logits, token_idx=-1, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
+        next_token = next_token.item()
+        if next_token == eos_token_id:
+            break
+        output_ids.append(next_token)
+        # Don't concatenate `next_token` to original `input_ids` since we're using
+        # the KV cache (`past_key_values`) to speed up generation.
+        input_ids = torch.tensor([[next_token]]).to(input_ids)
+
+    return output_ids
+
+
+def forward(
     model: transformers.LlamaForCausalLM,
     input_ids: torch.Tensor,
-    exit_layer: int,
+    past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
 ):
     device = input_ids.device
     batch_size, seq_length = input_ids.shape
+
     seq_length_with_past = seq_length
     past_key_values_length = 0
-    past_key_values = None
+
+    if past_key_values is not None:
+        past_key_values_length = past_key_values[0][0].shape[2]
+        seq_length_with_past = seq_length_with_past + past_key_values_length
+    past_key_values = transformers.cache_utils.DynamicCache.from_legacy_cache(past_key_values)
 
     position_ids = torch.arange(
         past_key_values_length,
@@ -28,9 +116,7 @@ def get_next_logits(
         device=device,
     )
     position_ids = position_ids.unsqueeze(0).view(-1, seq_length)
-    
-    # Constructing an attention mask of the same shape as the input IDs. 
-    attention_mask = input_ids.new_ones( 
+    attention_mask = input_ids.new_ones(
         (batch_size, seq_length_with_past),
         dtype=torch.bool,
     )
@@ -44,33 +130,90 @@ def get_next_logits(
     )
 
     hidden_states = inputs_embeds
-    # Propagate through the decoder layers up until the early exit layer
-    for decoder_layer in model.model.layers[:exit_layer]:
-        if past_key_values is not None:
-            hidden_states, past_key_values = decoder_layer(
-                hidden_states,
-                attention_mask=attention_mask,
-                position_ids=position_ids,
-                past_key_value=past_key_values,
-                output_attentions=False,
-                use_cache=True,
-                padding_mask=None,)
-        else:
-            hidden_states, past_key_values = decoder_layer(
+    for decoder_layer in model.model.layers:
+        hidden_states, past_key_values = decoder_layer(
             hidden_states,
             attention_mask=attention_mask,
             position_ids=position_ids,
+            past_key_value=past_key_values,
             output_attentions=False,
             use_cache=True,
-            padding_mask=None,)
+            padding_mask=None,
+        )
 
-    # past_key_values = past_key_values.to_legacy_cache()
-
+    past_key_values = past_key_values.to_legacy_cache()
     hidden_states = model.model.norm(hidden_states)
     logits = model.lm_head(hidden_states)
-    
-    return logits
 
+    return {'logits': logits, 'past_key_values': past_key_values}
+
+
+# Adapting intermediate decoding from here: https://github.com/facebookresearch/LayerSkip/blob/main/self_speculation/llama_model_utils.py#L213
+# Returns {logits, past_key_values, exit_query_cache}
+def forward_early(
+    model: transformers.LlamaForCausalLM,
+    input_ids: torch.Tensor,
+    past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
+    exit_layer: int,
+    exit_query_cache: Optional[List[torch.Tensor]],
+):
+    device = input_ids.device
+    batch_size, seq_length = input_ids.shape
+
+    seq_length_with_past = seq_length
+    past_key_values_length = 0
+
+    if past_key_values is not None:
+        past_key_values_length = past_key_values[0][0].shape[2]
+        seq_length_with_past = seq_length_with_past + past_key_values_length
+    past_key_values = transformers.cache_utils.DynamicCache.from_legacy_cache(past_key_values)
+
+    position_ids = torch.arange(
+        past_key_values_length,
+        seq_length + past_key_values_length,
+        dtype=torch.long,
+        device=device,
+    )
+    position_ids = position_ids.unsqueeze(0).view(-1, seq_length)
+    attention_mask = input_ids.new_ones(
+        (batch_size, seq_length_with_past),
+        dtype=torch.bool,
+    )
+    inputs_embeds = model.model.embed_tokens(input_ids)
+    attention_mask = _prepare_decoder_attention_mask(
+        model,
+        attention_mask,
+        (batch_size, seq_length),
+        inputs_embeds,
+        past_key_values_length,
+    )
+
+    hidden_states = inputs_embeds
+    for decoder_layer in model.model.layers[:exit_layer]:
+        hidden_states, past_key_values = decoder_layer(
+            hidden_states,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_value=past_key_values,
+            output_attentions=False,
+            use_cache=True,
+            padding_mask=None,
+        )
+
+    past_key_values = past_key_values.to_legacy_cache()
+
+    # next_cache = next_decoder_cache
+    if exit_query_cache is None:
+        exit_query_cache = hidden_states
+    else:
+        exit_query_cache = torch.cat([exit_query_cache, hidden_states], dim=1)
+
+    hidden_states = model.model.norm(hidden_states)
+
+    logits = model.lm_head(hidden_states)
+    # Returns (logits, past_key_values, exit_query_cache)
+    return {'logits': logits, 'past_key_values': past_key_values, 'exit_query_cache': exit_query_cache}
+    
 
 def top_k_top_p_filtering(
     logits: torch.FloatTensor,
@@ -94,20 +237,26 @@ def top_k_top_p_filtering(
 # Decoding via sampling, not just argmax
 def decode_next_token(
     logits: torch.Tensor,
-    sample: bool = False,
-    temperature: float = 0.7,
-    top_k: int = 50,
-    top_p: float = 0.95,
+    token_idx: int = None,
+    sample: Optional[bool] = False,
+    temperature: Optional[float] = 0.7,
+    top_k: Optional[int] = 50,
+    top_p: Optional[float] = 0.95,
 ) -> torch.Tensor:
+    if token_idx:
+        logits = logits[:, -1, :]
+
     if not sample:
         next_token = logits.argmax(dim=-1)
         return next_token, None
     else:
-        logits.squeeze_(dim=0)
+        if not token_idx:
+            logits.squeeze_(dim=0)
         filtered_logits = top_k_top_p_filtering(logits / temperature, top_k=top_k, top_p=top_p)
         probabilities = torch.nn.functional.softmax(filtered_logits, dim=-1)
         next_token = torch.multinomial(probabilities, num_samples=1)
-        next_token.transpose_(1, 0)
+        if not token_idx:
+            next_token.transpose_(1, 0)
         return next_token, probabilities
 
 
@@ -165,137 +314,7 @@ def _expand_mask(mask: torch.Tensor, dtype: torch.dtype, tgt_len = None):
     inverted_mask = 1.0 - expanded_mask
 
     return inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(dtype).min)
-
-
-
-
-def get_intermediate_embeddings(model, inputs, max_length):
-    # Retrieve outputs from intermediate layers using a hook
-    # Dictionary to store intermediate outputs
-    intermediate_outputs = {}
     
-    # Define a hook function to capture the output of a specific layer
-    def hook_fn(module, input, output):
-        # Find the layer name
-        for name, curr_module in model.named_modules():
-            if curr_module is module:
-                layer_name = name
-                
-        if layer_name not in intermediate_outputs:
-            intermediate_outputs[layer_name] = []
-        intermediate_outputs[layer_name].append(output)
-    
-    # Note: Adjust the layers you want to hook based on the model's architecture
-    hook_handles = []
-    for idx, layer in enumerate(model.model.layers):
-        # Hook the output of the attention mechanism (self-attention)
-        hook_handles.append(layer.self_attn.o_proj.register_forward_hook(hook_fn))
-        # Hook the last layer of the feed forward network
-        hook_handles.append(layer.post_attention_layernorm.register_forward_hook(hook_fn))
-    
-    # Perform a forward pass on the already-tokenized sample prompt
-    with torch.no_grad():
-        out = model.generate(**inputs, num_return_sequences=1, max_length=max_length)
-
-    # Remove all the hooks
-    for handle in hook_handles:
-        handle.remove()
-
-    return intermediate_outputs
-
-
-def get_intermediate_text_outputs(model, tokenizer, intermediate_outputs):
-    unembedding_matrix = model.get_output_embeddings().weight
-    intermediate_text = {}
-    
-    for layer_name, outputs in intermediate_outputs.items():
-        # Decode one token at a time. 
-        predicted_token_ids = []
-        for k in range(len(outputs)):
-            output_tensor = outputs[k].squeeze(0)
-            # Apply the unembedding matrix
-            logits = torch.matmul(output_tensor, unembedding_matrix.T)
-            # Note: the model still produces sequence lengths of 20 in intermediate generations.
-            # Select just the first one. 
-            next_token_id = torch.argmax(logits, dim=-1)[0]
-            # Break if the token is EOS
-            if next_token_id == tokenizer.eos_token_id:
-                break
-            # Otherwise append to the predictions
-            predicted_token_ids.append(next_token_id)
-                            
-        predicted_text = tokenizer.decode(predicted_token_ids, skip_special_tokens=True)
-        intermediate_text[layer_name] = predicted_text
-
-    return intermediate_text
-
-
-# Get scores according to some specific metric using the given model. 
-# 
-# model: the language model to run
-# get_prompt: given index i in the dataset, return the ith prompt
-# limit: max iterations to run. Set limit to len(dataset) to go through the full dataset.
-# print_every: how often to print a progress tracker
-# filepath: the FOLDER (not full filename) for saving out data. should include model name!
-# score_fn: a function that, given a single string of text, scores the text
-def get_scores(model, tokenizer, device, get_prompt, score_fn, limit, filepath=None, print_every=100): 
-    # Map each layer to a list of scores for each prompt. 
-    # Score has to be per prompt; e.g. toxicity of prompt, correctness, etc. 
-    # This is important since we later will want to do things like manage risk over the entire population. 
-    scores = { 'o_proj': {}, 'post_attention_layernorm': {}}
-
-    if filepath is not None:
-        if not os.path.exists(filepath):
-            os.makedirs(filepath)
-
-    # Format: each layer maps to a list of the outputs per prompt. 
-    for i in range(limit):
-        # Progress tracker
-        if i % print_every == 0:
-            print(i, 'out of', limit)
-        
-        # Tokenize the prompt
-        inputs = tokenizer(get_prompt(i), return_tensors="pt").to(device)
-        intermediate_embeddings = get_intermediate_embeddings(model, inputs, 50)
-        intermediate_text = get_intermediate_text_outputs(model, tokenizer, intermediate_embeddings)
-        
-        # Get scores for all intermediate outputs for this iteration
-        for layer_name, text in intermediate_text.items():
-            # Get the score using the provided function for the text output from each layer. 
-            # If classification/accuracy, score is 0 or 1 (or appropriate equivalent) for the prompt. 
-            score = score_fn(text)
-            if 'o_proj' in layer_name:
-                if layer_name not in scores['o_proj']:
-                    scores['o_proj'][layer_name] = []
-                scores['o_proj'][layer_name].append(score)
-            else:
-                if layer_name not in scores['post_attention_layernorm']:
-                    scores['post_attention_layernorm'][layer_name] = []
-                scores['post_attention_layernorm'][layer_name].append(score)
-    
-        # Save out the scores in a file (do this every iteration!)
-        if filepath is not None:
-            filename = filepath + 'limit_' + str(limit) + '.json'
-            with open(filename, 'w') as file:
-                json.dump(scores, file, default=lambda o: float(o) if isinstance(o, np.float32) else o)
-
-    return scores
-    
-
-def detoxify_score(text):
-    detoxify_model = Detoxify('original')
-    return detoxify_model.predict(text)['toxicity']
-
-
-def perspective_score(text):
-    url = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze"
-    data = {
-        "comment": {"text": text},
-        "languages": ["en"],
-        "requestedAttributes": {"TOXICITY": {}}
-    }
-    response = requests.post(url, params={"key": api_key}, json=data)
-    return response.json()["attributeScores"]["TOXICITY"]["summaryScore"]["value"]
 
 
 
