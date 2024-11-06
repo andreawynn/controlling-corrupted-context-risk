@@ -28,6 +28,10 @@ def perspective_score(text):
 
 def get_intermediate_output_single_prompt(prompt, path, filename, model, tokenizer, max_new_tokens=50):
     single_prompt_results = {'prompt': prompt}
+    columns = ['prompt', 'full_model']
+    n_layers = len(model.model.layers)
+    for i in range(1, n_layers): 
+        columns.append(i)
     
     # Tokenize prompt
     inputs = tokenizer(prompt, return_attention_mask=True, return_tensors="pt").to(model.device)
@@ -45,7 +49,7 @@ def get_intermediate_output_single_prompt(prompt, path, filename, model, tokeniz
     # Put each element in a list so it can be parsed to a DataFrame row
     for i in single_prompt_results.keys():
         single_prompt_results[i] = [single_prompt_results[i]]
-    single_prompt = pd.DataFrame(single_prompt_results, columns=single_prompt_results.keys())
+    single_prompt = pd.DataFrame(single_prompt_results, columns=columns)
     
     # Save the data
     if os.path.exists(path + filename):
