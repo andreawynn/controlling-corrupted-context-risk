@@ -10,6 +10,30 @@ import pandas as pd
 import transformers
 from typing import List, Optional, Tuple
 
+
+def get_nq_open_fewshot_prompt(question_text, example_texts, example_answers):
+    # Note: we can just use a simple fixed prompt. Examples taken from training set. 
+    prompt = "Your job is to answer trivia questions correctly. You will be given a single question and asked to produce a single response. "
+    prompt += "Here are a few examples of question-answer pairs for previous trivia questions. Your answer should follow the same format. \n"
+    for i in range(len(example_texts)):
+        prompt += "- Question " + str(i+1) + ": " + example_texts[i] + " || Answer " + str(i+1) + ": " + example_answers[i] + "\n"
+    prompt += "Here is the question you should answer. Question " + str(len(example_texts)+1) + ": " + question_text 
+    prompt += " || Answer " + str(len(example_texts)+1) + ": "
+    return prompt
+
+
+def get_financial_phrasebank_prompt(question_text, example_texts, example_answers):
+    # Assumes example_texts and example_answers are the same length. 
+    prompt = "Your job is to classify the sentiment of a given snippet of text. The possible classes are: positive, negative, neutral. "
+    prompt += "Output only the class of the text snippet and nothing else. Below are a few examples of text-sentiment pairs. "
+    prompt += "Your answer should follow the same format. \n"
+    for i in range(len(example_texts)):
+        prompt += "- Text " + str(i+1) + ": " + example_texts[i] + " || Answer " + str(i+1) + ": " + example_answers[i] + "\n"
+    prompt += "Here is the text you should classify. Text " + str(len(example_texts)+1) + ": " + question_text 
+    prompt += " || Answer " + str(len(example_texts)+1) + ": "
+    return prompt
+
+
 def detoxify_score(text):
     detoxify_model = Detoxify('original')
     return detoxify_model.predict(text)['toxicity']
@@ -35,7 +59,7 @@ def get_intermediate_output_single_prompt(prompt, path, filename, model, tokeniz
     
     # Tokenize prompt
     inputs = tokenizer(prompt, return_attention_mask=True, return_tensors="pt").to(model.device)
-    input_ids = torch.tensor(inputs['input_ids']).to(model.device)
+    input_ids = inputs['input_ids'].clone().detach().to(model.device)
     
     # Compute outputs at each intermediate layer
     for exit_layer in range(len(model.model.layers)):

@@ -18,7 +18,8 @@ login(token=os.getenv('HUGGINGFACE_TOKEN'))
 # For compute cluster with NVIDIA GPUs
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('Using', device)
-model_name = "meta-llama/Llama-3.2-1B"
+model_name = os.getenv('MODEL_NAME')
+print(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
 model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
 
@@ -29,7 +30,6 @@ def get_toxicity_prompt(i):
     return toxicity_prompts_dataset[i]['prompt']['text']
 
 # Get scores for toxicity dataset
-limit=250
+limit=int(os.getenv('LIMIT'))
 # Save all scores for a particular dataset. 
 real_toxicity_scores = get_scores(model, tokenizer, device, get_toxicity_prompt, detoxify_score, limit, filepath='./results/' + model_name + '/', print_every=50)
-print(real_toxicity_scores)
