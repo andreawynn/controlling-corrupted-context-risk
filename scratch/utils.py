@@ -48,9 +48,24 @@ def perspective_score(text):
     }
     response = requests.post(url, params={"key": api_key}, json=data)
     return response.json()["attributeScores"]["TOXICITY"]["summaryScore"]["value"]
+
+
+def get_max_class(options, tokenizer, output_ids):
+    output_logits = {}
+    for text in options:
+        # Compute the token ID for this option (assumes it's just 1)
+        token_ids = tokenizer(text)['input_ids'][1]
+        # Get the model output logit for this specific token
+        output_logits[text] = output_ids[0][0][token_ids].item()
+    
+    # Get the token (within the valid options) that has the maximum logit value
+    return max(output_logits, key = output_logits.get)
     
 
-def get_intermediate_output_single_prompt(prompt, path, filename, model, tokenizer, max_new_tokens=50):
+# output_classes determines whether output should be restricted to a single list of single-token outputs
+# if None, do not restrict output. otherwise, it should be a list containing all the possible outputs. 
+# e.g. true/false, positive/negative/neutral, ...
+def get_intermediate_output_single_prompt(prompt, path, filename, model, tokenizer, output_classes = None, max_new_tokens=50):
     single_prompt_results = {'prompt': prompt}
     columns = ['prompt', 'full_model']
     n_layers = len(model.model.layers)
@@ -63,8 +78,14 @@ def get_intermediate_output_single_prompt(prompt, path, filename, model, tokeniz
     
     # Compute outputs at each intermediate layer
     for exit_layer in range(len(model.model.layers)):
-        output_ids = decode_logits(model=model, input_ids=input_ids, max_new_tokens=max_new_tokens, exit_layer=exit_layer, eos_token_id=tokenizer.eos_token_id)
-        intermediate_output = tokenizer.decode(output_ids, skip_special_tokens=True)
+        # Either decode token-by-token, or decode restricted to a specific set of potential classes (output_classes)
+        if output_classes is None:
+            output_ids = decode_logits(model=model, input_ids=input_ids, max_new_tokens=max_new_tokens, exit_layer=exit_layer, eos_token_id=tokenizer.eos_token_id)
+            intermediate_output = tokenizer.decode(output_ids, skip_special_tokens=True)
+        else:
+            output_ids = decode_logits(model=model, input_ids=input_ids, max_new_tokens=max_new_tokens, exit_layer=exit_layer, return_all_logits=True, eos_token_id=tokenizer.eos_token_id)
+            intermediate_output = get_max_class(output_classes, tokenizer, output_ids)
+        
         if exit_layer == 0:
             single_prompt_results['full_model'] = intermediate_output
         else:
@@ -85,7 +106,7 @@ def get_intermediate_output_single_prompt(prompt, path, filename, model, tokeniz
 
 # Decode the logits according to an autoregressive strategy
 # Based on the following: https://github.com/facebookresearch/LayerSkip/blob/main/self_speculation/autoregressive_generator.py#L45
-def decode_logits(model, input_ids, max_new_tokens, exit_layer, eos_token_id, past_key_values=None, sample=True, 
+def decode_logits(model, input_ids, max_new_tokens, exit_layer, eos_token_id, past_key_values=None, sample=True, return_all_logits=False,
                   temperature: Optional[float] = 0.7,
                   top_k: Optional[int] = 50,
                   top_p: Optional[float] = 0.95):
@@ -108,6 +129,8 @@ def decode_logits(model, input_ids, max_new_tokens, exit_layer, eos_token_id, pa
                 past_key_values,
             )
         logits = model_output['logits']
+        if return_all_logits:
+            return logits
         past_key_values = model_output['past_key_values']
         next_token, _ = decode_next_token(logits=logits, token_idx=-1, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
         next_token = next_token.item()
