@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import json
 import os
-from utils import get_intermediate_output_single_prompt, save_single_result
+from utils import get_intermediate_output_single_prompt
 from prompt_utils import get_all_prompts_single_question
 import pandas as pd
 import numpy as np
@@ -58,7 +58,7 @@ dataset_bad_labels = {
 }
 
 # Load the dataset
-data = pd.read_csv('./datasets/' + dataset + '/risk_control_data.csv')
+data = pd.read_csv('./datasets/icl/' + dataset + '/risk_control_data.csv')
 labels, text = data['label'], data['text']
 # Generate prompts on the fly
 n_examples_per_class = int(n_demos/len(dataset_labels[dataset]))
@@ -79,11 +79,10 @@ else:
     all_models, all_tokenizers = [models[int(model_idx)]], [tokenizers[int(model_idx)]]
 
 for model_name, tokenizer_name in zip(all_models, all_tokenizers):
-    print(model_name, dataset)
+    print(model_name, dataset, n_demos, 'demos')
 
     # Load the model
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    print('Tokenizer loaded, loading model')
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16)  
     print('Model loaded successfully. Device: ', next(model.parameters()).device)
 
@@ -119,48 +118,37 @@ for model_name, tokenizer_name in zip(all_models, all_tokenizers):
         all_prompts, all_labels = [incorrect_prompts], ['incorrect']
 
     # Run all the experiments for this model and dataset
-    all_data = None
+    all_data = {}
     for prompts, expt_type in zip(all_prompts, all_labels):
         print('Running', expt_type)
-        path = './' + result_folder_name + '/' + dataset + '/n_demos_' + str(n_demos) + '/' + model_name + '/' + expt_type + '/'
-        if not os.path.exists(path):
-            os.makedirs(path)
 
         # Get the intermediate predictions from the model at each layer, for each question
-        for i in range(data.shape[0]):
-            torch.cuda.empty_cache()
+        for i in range(len(prompts)):
             # get raw prediction results
             results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, W_filepath)
             results['true_label'] = labels[i]
-            if all_data is None:
+            if len(all_data) == 0:
                 # Initialize all_data
-                all_data = {}
                 for col in results:
                     all_data[col] = [results[col]]
             else:
                 # Append to the list
                 for col in results:
                     all_data[col].append(results[col])
-            
-            # no calibration
-            # results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, 1)
-            # get full model generation
-            # full_generation_output = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, None, 1, W_filepath)
-            # # combine the two
-            # for exit_layer in range(1, len(model.model.layers)):
-            #     results[str(exit_layer) + '_generation'] = full_generation_output[str(exit_layer)]
-            #     results['max_logit' + str(exit_layer)] = full_generation_output['max_logit' + str(exit_layer)]
-            #     results['max_token_id' + str(exit_layer)] = full_generation_output['max_token_id' + str(exit_layer)]
-            # results['full_model_generation'] = full_generation_output['full_model']
+        
+            # Sanity check: compute single sample accuracy
+            # print('Full Model Pred:', results[str(len(model.model.layers)-1)])
+            # print('Label:', results['true_label'])
+        # print('Accuracy:', sum([x==t for x,t in zip(all_data[str(len(model.model.layers)-1)], all_data['true_label'])]) / len(all_data))
 
-            # save_single_result(results, path, datetime_string + '.csv')
+        # Save result
+        path = './' + result_folder_name + '/n_demos_' + str(n_demos) + '/' + dataset + '/' + model_name + '/' 
+        if not os.path.exists(path):
+            os.makedirs(path)
 
-    # Save results to CSV
-    now = datetime.datetime.now()
-    datetime_string = now.strftime("%Y-%m-%d-%H-%M-%S")
-    # Convert to DataFrame and save as CSV
-    df = pd.DataFrame()
-    for col in all_data:
-        df[col] = all_data[col]
-    df.to_csv(path + datetime_string + '.csv', index=False)
+        with open(path + expt_type + '.json', 'w') as file:
+            json.dump(all_data, file)
+        
+        # Reset all_data for the next experiment
+        all_data = {}
             

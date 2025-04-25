@@ -53,6 +53,26 @@ def compute_single_weight(calibration_logits, token_map):
     return W
 
 
+def generate_sequence_and_probs(model, tokenizer, inputs, max_tokens, temperature):
+    all_probs = []
+    input_ids = inputs['input_ids'].to(next(model.parameters()).device)
+    for _ in range(max_tokens):
+        with torch.no_grad():
+            outputs = model(input_ids=input_ids, temperature=temperature)
+            next_token_logits = outputs.logits[:, -1, :]  # Get logits for next token
+            probs = torch.softmax(next_token_logits, dim=-1)
+            # Dimension is [1, vocab_size]. Reduce to just [vocab_size]. 
+            all_probs.append(probs.flatten().cpu())
+            # Sample the next token
+            next_token = torch.multinomial(probs, num_samples=1)
+            # Add the next token to the input_ids
+            input_ids = torch.cat([input_ids, next_token], dim=-1)
+
+    # Decode the full final output
+    generated_text = tokenizer.decode(input_ids[0], skip_special_tokens=True)
+    return generated_text, all_probs
+
+
 # Loading in a pre-computed calibration matrix
 def compute_calibrated_prediction(logits, W, token_map, return_logit_value=False):
     label_order = list(token_map.keys())
@@ -96,14 +116,15 @@ def get_max_class(token_map, token_logits, return_all_logits=False):
 # if None, do not restrict output. otherwise, it should be a list containing all the possible outputs. 
 # e.g. true/false, positive/negative/neutral, ...
 def get_intermediate_output_single_prompt(prompt, model, tokenizer, token_map, calibration_weight_filepath=None): 
-    single_prompt_results = {'prompt': prompt}
+    single_prompt_results = {}
     
     # Tokenize prompt
     inputs = tokenizer(prompt, return_attention_mask=True, return_tensors="pt")
 
     # Decode to a restricted set of classes specified by token_map. 
     # In this case, we can be more efficient by pre-computing all early exits at once.
-    all_logits = get_first_token_logits_per_layer(model, inputs)
+    # all_logits = get_first_token_logits_per_layer(model, inputs)
+    all_logits = get_last_token_logits_per_layer(model, inputs)
         
     # Compute outputs at each intermediate layer
     for exit_layer in range(len(model.model.layers)):
@@ -112,15 +133,14 @@ def get_intermediate_output_single_prompt(prompt, model, tokenizer, token_map, c
         if calibration_weight_filepath is not None:
             # Take moving average over 3 exits
             W = np.load(calibration_weight_filepath + 'exit_'  + str(exit_layer) + '/weights.npy')
-            if exit_layer == 0 or exit_layer == len(model.model.layers)-1:
+            if exit_layer == len(model.model.layers)-1:
                 # final exit - moving avg with the last three
-                W = np.load(calibration_weight_filepath + 'exit_0/weights.npy')
-                W = np.add(W, np.load(calibration_weight_filepath + 'exit_'  + str(len(model.model.layers)-1) + '/weights.npy'))
-                W = np.add(W, np.load(calibration_weight_filepath + 'exit_'  + str(len(model.model.layers)-2) + '/weights.npy'))
-            elif exit_layer == 1:
+                W = np.add(W, np.load(calibration_weight_filepath + 'exit_'  + str(exit_layer-1) + '/weights.npy'))
+                W = np.add(W, np.load(calibration_weight_filepath + 'exit_'  + str(exit_layer-2) + '/weights.npy'))
+            elif exit_layer == 0:
                 # first exit - moving avg with the first three
+                W = np.add(W, np.load(calibration_weight_filepath + 'exit_1/weights.npy'))
                 W = np.add(W, np.load(calibration_weight_filepath + 'exit_2/weights.npy'))
-                W = np.add(W, np.load(calibration_weight_filepath + 'exit_3/weights.npy'))
             else:
                 # moving avg with one before, one after
                 W = np.add(W, np.load(calibration_weight_filepath + 'exit_'  + str(exit_layer-1) + '/weights.npy'))
@@ -130,21 +150,17 @@ def get_intermediate_output_single_prompt(prompt, model, tokenizer, token_map, c
 
         # Make prediction with contextual calibration on a single token. 
         # This is where filtering down to the valid token IDs is done (in the functions)
-        logits = all_logits[len(model.model.layers)-1 if exit_layer == 0 else exit_layer-1]
+        logits = all_logits[exit_layer]
         if W is not None:
             token_logits, label_order, intermediate_output = compute_calibrated_prediction(logits, W, token_map, return_logit_value=True)
             # Save out the confidence score of the max logit
             confidences = torch.nn.functional.softmax(torch.tensor(token_logits), dim=0)
-            # Only use code below if I want to save the individual logits (for debugging/examination)
-            # for i in range(len(label_order)):
-            #     single_prompt_results[str(exit_layer) + label_order[i] + '_confidence'] = token_logits[i]
+            single_prompt_results[str(exit_layer) + '_confidences'] = confidences.tolist()
         else:
             intermediate_output = get_max_class(token_map, logits)
         
-        col = 'full_model' if exit_layer == 0 else str(exit_layer)
-        single_prompt_results[col] = intermediate_output
-        single_prompt_results[col + '_confidence'] = max(confidences).item()
-        single_prompt_results[col + '_raw_logits'] = token_logits
+        # Save the model's prediction
+        single_prompt_results[str(exit_layer)] = str(intermediate_output)
 
     return single_prompt_results
 
@@ -165,7 +181,7 @@ def save_single_result(single_prompt_results, path, filename):
     results.to_csv(path + filename, index=False)
 
 
-def get_first_token_logits_per_layer(model, inputs):
+def get_last_token_logits_per_layer(model, inputs):
     """
     Given a HuggingFace AutoModelForCausalLM and tokenized inputs, 
     return the logits for the first token output from each layer of the model.
@@ -193,10 +209,13 @@ def get_first_token_logits_per_layer(model, inputs):
     # Extract logits for the first token from each layer
     logits_per_layer = []
     for layer_idx, layer_hidden_states in enumerate(hidden_states):
-        # Take the first token's hidden state (index 0 in sequence dimension)
-        first_token_hidden_state = layer_hidden_states[:, 0, :]  # Shape: [batch_size, hidden_size]
+        layer_hidden_states = model.model.norm(layer_hidden_states)
+        # Take the last token's hidden state (index 0 in sequence dimension)
+        last_token_hidden_state = layer_hidden_states[:, -1, :]  # Shape: [batch_size, hidden_size]
         # Project the hidden state to logits using the model's language modeling head
-        logits = model.lm_head(first_token_hidden_state)  # Shape: [batch_size, vocab_size]
+        logits = model.lm_head(last_token_hidden_state)  # Shape: [batch_size, vocab_size]
         logits_per_layer.append(logits)
 
     return logits_per_layer
+
+
