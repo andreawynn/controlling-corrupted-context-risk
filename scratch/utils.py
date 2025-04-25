@@ -107,7 +107,7 @@ def get_max_class(token_map, token_logits, return_all_logits=False):
         output_logits[l] = max_label_logit
 
     if return_all_logits:
-        return output_logits
+        return max(output_logits, key=output_logits.get), output_logits
     # Get the token (within the valid options) that has the maximum logit value
     return max(output_logits, key=output_logits.get)
     
@@ -155,11 +155,12 @@ def get_intermediate_output_single_prompt(prompt, model, tokenizer, token_map, c
             token_logits, label_order, intermediate_output = compute_calibrated_prediction(logits, W, token_map, return_logit_value=True)
             # Save out the confidence score of the max logit
             confidences = torch.nn.functional.softmax(torch.tensor(token_logits), dim=0)
-            single_prompt_results[str(exit_layer) + '_confidences'] = confidences.tolist()
         else:
-            intermediate_output = get_max_class(token_map, logits)
+            intermediate_output, outputs = get_max_class(token_map, logits, return_all_logits=True)
+            confidences = torch.nn.functional.softmax(torch.tensor(list(outputs.values())), dim=0)
         
-        # Save the model's prediction
+        # Save the model's prediction and confidences
+        single_prompt_results[str(exit_layer) + '_confidences'] = confidences.tolist()
         single_prompt_results[str(exit_layer)] = str(intermediate_output)
 
     return single_prompt_results
