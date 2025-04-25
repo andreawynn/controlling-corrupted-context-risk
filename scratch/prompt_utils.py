@@ -75,7 +75,7 @@ def get_boolean_prompt(question_text, example_texts, example_answers, zeroshot=F
     if not zeroshot:
         prompt += "Below are a few examples of boolean expressions and their associated truth values. \n"
         for i in range(len(example_texts)):
-            prompt += " Expression: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]) + "\n"
+            prompt += " Expression: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]).lower() + "\n"
     prompt += " Expression: " + str(question_text) + " \nAnswer: "
     return prompt
 
@@ -88,7 +88,7 @@ def get_navigation_prompt(question_text, example_texts, example_answers, zerosho
     if not zeroshot:
         prompt += "Below are a few examples of navigation directions and whether they would bring you back to your starting point. \n"
         for i in range(len(example_texts)):
-            prompt += " Directions: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]) + "\n"
+            prompt += " Directions: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]).lower() + "\n"
     prompt += " Directions: " + str(question_text) + " \nAnswer: "
     return prompt
 
@@ -100,7 +100,7 @@ def get_sports_prompt(question_text, example_texts, example_answers, zeroshot=Fa
     if not zeroshot:
         prompt += "Below are a few examples of statements and whether they are plausible. \n"
         for i in range(len(example_texts)):
-            prompt += " Statement: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]) + "\n"
+            prompt += " Statement: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]).lower() + "\n"
     prompt += " Statement: " + str(question_text) + " \nAnswer: "
     return prompt
 
@@ -113,7 +113,7 @@ def get_web_of_lies_prompt(question_text, example_texts, example_answers, zerosh
     if not zeroshot:
         prompt += "Below are a few example scenarios and classifications of a particular person's honesty. \n"
         for i in range(len(example_texts)):
-            prompt += " Scenario: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]) + "\n"
+            prompt += " Scenario: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]).lower() + "\n"
     prompt += " Scenario: " + str(question_text) + " \nAnswer: "
     return prompt
     
@@ -126,7 +126,7 @@ def get_unnatural_prompt(question_text, example_texts, example_answers, zeroshot
     if not zeroshot:
         prompt += "Below are a few examples of object-class pairs. \n"
         for i in range(len(example_texts)):
-            prompt += " Object: " + str(example_texts[i]) + " \nClass: " + str(example_answers[i]) + "\n"
+            prompt += " Object: " + str(example_texts[i]) + " \nClass: " + str(example_answers[i]).lower() + "\n"
     prompt += " Object: " + str(question_text) + " \nClass: "
     return prompt
 
@@ -139,7 +139,7 @@ def get_sst2_prompt(question_text, example_texts, example_answers, zeroshot=Fals
     if not zeroshot:
         prompt += "Below are a few examples of text-sentiment pairs. \n"
         for i in range(len(example_texts)):
-            prompt += " Text: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]) + "\n"
+            prompt += " Text: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]).lower() + "\n"
     prompt += " Text: " + str(question_text) + " \nAnswer: "
     return prompt
 
@@ -152,7 +152,7 @@ def get_tweeteval_hate_prompt(question_text, example_texts, example_answers, zer
     if not zeroshot:
         prompt += "Below are a few examples of tweet-sentiment pairs. \n"
         for i in range(len(example_texts)):
-            prompt += " Tweet: " + str(example_texts[i]) + " \nSentiment: " + str(example_answers[i]) + "\n"
+            prompt += " Tweet: " + str(example_texts[i]) + " \nSentiment: " + str(example_answers[i]).lower() + "\n"
     prompt += " Tweet: " + str(question_text) + " \nSentiment: "
     return prompt
 
@@ -165,7 +165,7 @@ def get_tweeteval_atheism_prompt(question_text, example_texts, example_answers, 
     if not zeroshot:
         prompt += "Below are a few examples. \n"
         for i in range(len(example_texts)):
-            prompt += " Text: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]) + "\n"
+            prompt += " Text: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]).lower() + "\n"
     prompt += " Text: " + str(question_text) + " \nAnswer: "
     return prompt
 
@@ -178,6 +178,6 @@ def get_tweeteval_feminist_prompt(question_text, example_texts, example_answers,
     if not zeroshot:
         prompt += "Below are a few examples. \n"
         for i in range(len(example_texts)):
-            prompt += " Text: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]) + "\n"
+            prompt += " Text: " + str(example_texts[i]) + " \nAnswer: " + str(example_answers[i]).lower() + "\n"
     prompt += " Text: " + str(question_text) + " \nAnswer: "
     return prompt

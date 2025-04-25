@@ -125,7 +125,8 @@ for model_name, tokenizer_name in zip(all_models, all_tokenizers):
         # Get the intermediate predictions from the model at each layer, for each question
         for i in range(len(prompts)):
             # get raw prediction results
-            results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, W_filepath)
+            # results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, W_filepath)
+            results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, None)
             results['true_label'] = labels[i]
             if len(all_data) == 0:
                 # Initialize all_data
