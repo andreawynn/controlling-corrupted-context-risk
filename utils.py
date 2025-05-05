@@ -13,7 +13,7 @@ from typing import List, Optional, Tuple
 # Compute phat given a set of logits and token map
 def compute_phat(logits, token_map):
     # Step 1: Find the logits we care about
-    phat_cf = get_max_class(token_map, logits, return_all_logits=True)
+    phat_cf = get_max_class(token_map, logits, return_all_logits=True)[1]
     
     # Step 2: Re-normalize to 1 (i.e. make them valid probabilities)
     # logit_sum = sum(list(phat_cf.values()))

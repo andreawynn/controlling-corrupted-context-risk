@@ -15,10 +15,12 @@ login(token=os.getenv('HUGGINGFACE_TOKEN'))
 experiment_type = os.getenv('EXPERIMENT_TYPE')
 n_demos = int(os.getenv('N_DEMOS'))
 result_folder_name = os.getenv('RESULT_FOLDER_NAME')
+use_calibration = os.getenv('USE_CALIBRATION') == 'Y'
 
-# Get the dataset name
-datasets = ['financial_phrasebank', 'sst2', 'tweeteval_hate', 'tweeteval_feminist', 'tweeteval_atheism', 'unnatural',
-            'boolean', 'navigation', 'sports', 'web_of_lies']
+# datasets = ['ag_news', 'mqp', 'mrp', 'wnli', 'financial_phrasebank', 'sst2', 'tweeteval_hate', 'tweeteval_feminist', 'tweeteval_atheism', 
+#             'unnatural', 'boolean', 'navigation', 'sports', 'web_of_lies']
+# No too-hard datasets
+datasets = ['trec', 'ag_news', 'financial_phrasebank', 'sst2', 'tweeteval_hate', 'tweeteval_feminist', 'tweeteval_atheism', 'unnatural']
 dataset_idx = int(os.getenv('DATASET_INDEX'))
 dataset = datasets[dataset_idx]
 
@@ -30,41 +32,38 @@ tokenizers = ["meta-llama/Meta-Llama-3-8B", "meta-llama/Llama-2-7B-hf", "meta-ll
               'meta-llama/Llama-2-13B-hf']
 
 # Get the appropriate list of labels
-dataset_labels = {
-    'financial_phrasebank': ['positive', 'negative', 'neutral'],
-    'sst2': ['positive', 'negative'],
-    'tweeteval_hate': ['favor', 'against'],
-    'tweeteval_atheism': ['yes', 'no', 'neither'],
-    'tweeteval_feminist': ['yes', 'no', 'neither'],
-    'unnatural': ['plant/vegetable', 'sport', 'animal'],
-    'boolean': ['true', 'false'], 
-    'navigation': ['yes', 'no'],
-    'sports': ['yes', 'no'], 
-    'web_of_lies': ['yes', 'no'],
-}
+with open('dataset_labels.json') as f:
+    dataset_labels = json.load(f)
 
 # Get bad labels for generating incorrect examples
-dataset_bad_labels = {
-    'financial_phrasebank': {'positive': 'negative', 'negative': 'neutral', 'neutral': 'positive'}, 
-    'sst2': {'positive': 'negative', 'negative': 'positive'}, 
-    'tweeteval_hate': {'favor': 'against', 'against': 'favor'}, 
-    'tweeteval_atheism': {'yes': 'no', 'no': 'neither', 'neither': 'yes'}, 
-    'tweeteval_feminist': {'yes': 'no', 'no': 'neither', 'neither': 'yes'}, 
-    'unnatural': {'plant/vegetable': 'sport', 'sport': 'animal', 'animal': 'plant/vegetable'}, 
-    'boolean': {'true': 'false', 'false': 'true'}, 
-    'navigation': {'yes': 'no', 'no': 'yes'},
-    'sports': {'yes': 'no', 'no': 'yes'}, 
-    'web_of_lies': {'yes': 'no', 'no': 'yes'},
-}
+with open('dataset_bad_labels.json') as f:
+    dataset_bad_labels = json.load(f)
+
+with open('fake_labels.json') as f:
+    fake_labels = json.load(f)
+
+use_fake_labels = os.getenv('USE_FAKE_LABELS') == 'Y'
 
 # Load the dataset
-data = pd.read_csv('./datasets/icl/' + dataset + '/risk_control_data.csv')
+data = pd.read_csv('./processed_data/icl/' + dataset + '.csv')
 labels, text = data['label'], data['text']
+ds_labels, ds_bad_labels = dataset_labels[dataset], dataset_bad_labels[dataset]
+# Apply fake labels, if using
+if use_fake_labels:
+    ds_labels, ds_bad_labels = [], {}
+    for label in dataset_labels[dataset]:
+        ds_labels.append(fake_labels[label])
+
+    for key, value in dataset_bad_labels[dataset].items():
+        ds_bad_labels[fake_labels[key]] = fake_labels[value]
+
+    labels = [fake_labels[x] for x in labels]
 # Generate prompts on the fly
-n_examples_per_class = int(n_demos/len(dataset_labels[dataset]))
+n_examples_per_class = int(n_demos/len(ds_labels))
 correct_prompts, incorrect_prompts, zeroshot_prompts = [], [], []
 for question in text.to_list():
-    c, i, z = get_all_prompts_single_question(n_examples_per_class, text, labels, question, dataset_bad_labels[dataset], dataset)
+    zeroshot_labels = dataset_labels[dataset] # specify the possible labels for zeroshot
+    c, i, z = get_all_prompts_single_question(n_examples_per_class, text, labels, question, ds_bad_labels, dataset, use_fake_labels)
     correct_prompts.append(c)
     incorrect_prompts.append(i)
     zeroshot_prompts.append(z)
@@ -97,14 +96,15 @@ for model_name, tokenizer_name in zip(all_models, all_tokenizers):
     # Reduce down to only the allowed labels
     keys_to_remove = []
     for key in token_map:
-        if key not in dataset_labels[dataset]:
+        if key not in ds_labels:
             keys_to_remove.append(key)
 
     for key in keys_to_remove:
         token_map.pop(key, None)
     
     # Define the filename for the calibration matrices to load from
-    W_filepath = './calibration/n_demos_' + str(n_demos) + '/' + dataset + '/' + model_name + '/'
+    W_filepath = './calibration' + ('_fake_labels' if use_fake_labels else '') +'/n_demos_' + str(n_demos) + '/' + dataset + '/' 
+    W_filepath += model_name + '/'
 
     # Break into cases by experiment type
     all_prompts, all_labels = [], []
@@ -125,9 +125,12 @@ for model_name, tokenizer_name in zip(all_models, all_tokenizers):
         # Get the intermediate predictions from the model at each layer, for each question
         for i in range(len(prompts)):
             # get raw prediction results
-            # results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, W_filepath)
-            results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, None)
-            results['true_label'] = labels[i]
+            if use_calibration:
+                results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, W_filepath)
+            else:
+                results = get_intermediate_output_single_prompt(prompts[i], model, tokenizer, token_map, None)
+
+            results['true_label'] = str(labels[i]).lower()
             if len(all_data) == 0:
                 # Initialize all_data
                 for col in results:
@@ -136,14 +139,10 @@ for model_name, tokenizer_name in zip(all_models, all_tokenizers):
                 # Append to the list
                 for col in results:
                     all_data[col].append(results[col])
-        
-            # Sanity check: compute single sample accuracy
-            # print('Full Model Pred:', results[str(len(model.model.layers)-1)])
-            # print('Label:', results['true_label'])
-        # print('Accuracy:', sum([x==t for x,t in zip(all_data[str(len(model.model.layers)-1)], all_data['true_label'])]) / len(all_data))
 
         # Save result
-        path = './' + result_folder_name + '/n_demos_' + str(n_demos) + '/' + dataset + '/' + model_name + '/' 
+        path = './' + result_folder_name + ('_fake_labels' if use_fake_labels else '') + ('/calibrated' if use_calibration else '/uncalibrated')
+        path += '/n_demos_' + str(n_demos) + '/' + dataset + '/' + model_name + '/' 
         if not os.path.exists(path):
             os.makedirs(path)
 
