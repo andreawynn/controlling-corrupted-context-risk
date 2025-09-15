@@ -111,7 +111,7 @@ def get_losses_and_exits_confidence(conf, acc, lambdas, relative_labels, true_la
 
     # If relative loss, compute
     if relative_labels is not None:
-        relative_labels_loss = 1 - (relative_labels == true_labels)
+        relative_labels_loss = [1 - (x == y) for x,y in zip(relative_labels, true_labels)]
         all_losses = np.array(all_losses) - np.array(relative_labels_loss)
 
     return np.array(all_losses), np.array(all_exits)
@@ -152,7 +152,7 @@ def get_all_confidences(data, n_early_exit, label_order, confidence_type, first_
                 conf[data_idx][layer_idx] = confidences[pred_label_idx]
             elif confidence_type == 'top2_diff':
                 # Pick the top 2 elements of the confidences and add their difference to the array
-                top2, _ = torch.topk(confidences,2)
+                top2, _ = torch.topk(torch.Tensor(confidences),2)
                 conf[data_idx][layer_idx] = top2[0] - top2[1]
             elif confidence_type == 'entropy':
                 # Compute entropy over the entire confidences array
@@ -161,20 +161,10 @@ def get_all_confidences(data, n_early_exit, label_order, confidence_type, first_
 
 
 def get_label_order(dataset, tokenizer_name):
-    dataset_labels = {
-        'financial_phrasebank': ['positive', 'negative', 'neutral'],
-        'sst2': ['positive', 'negative'],
-        'tweeteval_hate': ['favor', 'against'],
-        'tweeteval_atheism': ['yes', 'no', 'neither'],
-        'tweeteval_feminist': ['yes', 'no', 'neither'],
-        'unnatural': ['plant/vegetable', 'sport', 'animal'],
-        'boolean': ['true', 'false'], 
-        'navigation': ['yes', 'no'],
-        'sports': ['yes', 'no'], 
-        'web_of_lies': ['yes', 'no'],
-    }
+    with open('dataset_labels.json') as f:
+        dataset_labels = json.load(f)
     
-    with open('all_token_maps_one_id.json') as f:
+    with open('all_token_maps.json') as f:
         token_maps = json.load(f)
     token_map = token_maps[tokenizer_name]
 
@@ -350,7 +340,7 @@ def ltt_lam(
     if len(lams) == 0:
         return None
     else:
-        return lams.max()
+        return lams.min()
 
 
 def ucb_lam(
