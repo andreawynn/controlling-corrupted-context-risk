@@ -41,7 +41,7 @@ def compute_intermediate_loss(config, lm_head, model_dim, lm_logits=None, labels
             
         else:
             raise NotImplementedError
-            
+
     return loss  
 
 

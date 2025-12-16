@@ -11,6 +11,9 @@ class DataTrainingArguments:
     dataset_name: Optional[str] = field(
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
+    context_condition: Optional[str] = field(
+        default=None, metadata={"help": "The type of context to use ('a' for answerable, 'u' for unanswerable, 'z' for zero-shot)."}
+    )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
     )

@@ -72,7 +72,6 @@ import wandb
 
 import matplotlib.pyplot as plt
 
-# Disable WandB logging
 os.environ["WANDB_DISABLED"] = "true"
 logger = logging.getLogger(__name__)
 
@@ -178,10 +177,42 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             cache_dir=model_args.cache_dir,
             use_auth_token=True if model_args.use_auth_token else None,
         )
+    
+    # Separate answerable vs un-answerable questions for SQuAD2.0
+    if data_args.dataset_name == "squad_v2":
+        # Define a helper to check answerability
+        def is_answerable(example):
+            # The 'text' list is empty for unanswerable examples
+            return len(example["answers"]["text"]) > 0
+
+        # Filter the splits
+        train_answerable = raw_datasets["train"].filter(is_answerable)
+        train_unanswerable = raw_datasets["train"].filter(lambda ex: not is_answerable(ex))
+
+        val_answerable = raw_datasets["validation"].filter(is_answerable)
+        val_unanswerable = raw_datasets["validation"].filter(lambda ex: not is_answerable(ex))
+
+        # Only do one of 'answerable', 'unanswerable', or 'zeroshot'
+        if data_args.context_condition == 'a':
+            # Use answerable context
+            raw_datasets['train'] = train_answerable
+            raw_datasets['validation'] = val_answerable
+        elif data_args.context_condition == 'u':
+            # Use unanswerable context
+            raw_datasets['train'] = train_unanswerable
+            raw_datasets['validation'] = val_unanswerable
+        elif data_args.context_condition == 'z':
+            # Zero-shot: no context at all
+            # TODO need to implement
+            raise NotImplementedError("TODO: zero-shot SQuAD2.0 not implemented yet")
+        else:
+            raise NotImplementedError
+
     # For debugging: use a small subset of data
     if additional_args.use_data_subset:
         raw_datasets['train'] = raw_datasets['train'].select(range(50))
         raw_datasets['validation'] = raw_datasets['validation'].select(range(50))
+    
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
 
@@ -728,11 +759,9 @@ if __name__ == "__main__":
         model_args, data_args, training_args, additional_args = parser.parse_args_into_dataclasses()
 
     if data_args.dataset_name in ["squad", "squad_v2", "narrativeqa"]:
-        model_cls = T5ForConditionalGeneration if not additional_args.deploy_scenario \
-            else DeployT5ForConditionalGeneration
+        model_cls = T5ForConditionalGeneration if not additional_args.deploy_scenario else DeployT5ForConditionalGeneration
     trainer_cls = QATrainer
     training_args.include_inputs_for_metrics = True
-    #os.environ["WANDB_DISABLED"] = "true"
     try:
         wandb.login()
 
