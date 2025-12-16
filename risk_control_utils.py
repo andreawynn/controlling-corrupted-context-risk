@@ -1,4 +1,3 @@
-# Adapted from Fast Yet Safe paper
 import numpy as np
 from typing import List, Tuple, Dict
 from scipy.stats import binom, entropy
@@ -9,38 +8,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 
-def apply_risk_control(conf, acc, gt, rel_labels, lambdas, eps_grid, rcp_type, delta, n_cal, n_trials, default_loss_uncontrolled_risk, 
-                       default_eff_gain_uncontrolled_risk, loss_01_conversion):
-    
-    losses, exits = get_losses_and_exits_confidence(conf, acc, lambdas, rel_labels, gt)
+def apply_risk_control(conf, acc, gt, rel_labels, lambdas, eps_grid, delta, n_cal, n_trials, loss_01_conversion, default_to_zero_shot=True, lambda_type='confidence'): # lambda_type = 'confidence' or 'layer'
 
-    rc_losses = np.array(losses)
-    rc_eps_grid = np.array(eps_grid)
-    if loss_01_conversion == 'max_0':
-        # set negative losses to 0
-        rc_losses = np.clip(rc_losses, 0, None)
-        # set the actual losses to this as well
-        losses = rc_losses
-    elif loss_01_conversion == 'scaling':
-        # scale the losses to disallow negative
-        rc_losses = (rc_losses + 1) / 2
-        # scale default losses
-        default_loss_uncontrolled_risk = (default_loss_uncontrolled_risk + 1) / 2
-        # Also scale the epsilon grid to epsilon-prime just for risk control
-        rc_eps_grid = (rc_eps_grid + 1) / 2
-    
+    if lambda_type == 'confidence':
+        losses, exits = get_losses_and_exits_confidence(conf, acc, lambdas, rel_labels, gt, default_to_zero_shot)
+    else:
+        losses, exits = get_losses_and_exits_layer(conf, acc, lambdas, rel_labels, gt)
+
     # Compute risk and efficiency gains & optimal lambdas (using rc_main)
     avg_exit_per_lambda = exits.mean(axis=1)
-    test_risk, eff_gains, rcp_lams = rc_main(rc_losses, avg_exit_per_lambda, rc_eps_grid, rcp_types=[rcp_type], 
-                                             default_loss=default_loss_uncontrolled_risk, 
-                                             default_eff_gain=default_eff_gain_uncontrolled_risk,
-                                             binary_loss=True, loss_bound=1, n_trials=n_trials, n_cal=n_cal, delta=delta,)
-
-    # If we scaled the epsilon and risk, scale them back before returning
+    rcp_type = 'ltt-scaled' if loss_01_conversion == 'scaling' else 'ltt'
+    test_risk, eff_gains, rcp_lams = rc_main(np.array(losses), avg_exit_per_lambda, np.array(eps_grid), rcp_types=[rcp_type],
+                                             loss_bound=1, n_trials=n_trials, n_cal=n_cal, delta=delta, binary_loss=True,)
     test_risk, eff_gains, rcp_lams = np.array(test_risk[rcp_type]), np.array(eff_gains[rcp_type]), np.array(rcp_lams[rcp_type])
-    if loss_01_conversion == 'scaling':
-        test_risk = test_risk * 2 - 1
-
     return losses, test_risk, eff_gains, rcp_lams
 
 
@@ -86,12 +66,40 @@ def get_ground_truth_by_type(ground_truth_type, correct, incorrect, zeroshot, n_
         return zeroshot[full_model_idx], zeroshot[full_model_idx], zeroshot[full_model_idx]
     elif ground_truth_type == 'full_model':
         return correct[full_model_idx], incorrect[full_model_idx], zeroshot[full_model_idx]
-        
+
+
+# Lambda exit layers MUST BE in decreasing order
+def get_losses_and_exits_layer(conf, acc, lambda_exit_layers, relative_labels, true_labels, default_to_zero_shot=True):
+    # Track losses and exit layers
+    all_losses, all_exits = [], []
+
+    for layer in lambda_exit_layers: # iterate over exit layers
+        # Compute all losses via accuracy
+        losses = 1-acc[:,layer]
+        # Exits are all the same layer; Convert to 1-based indexing
+        exits = (layer+1) * np.ones(losses.shape)
+        all_losses.append(losses)
+        all_exits.append(exits)
+
+    # If relative loss, compute
+    if relative_labels is not None:
+        relative_labels_loss = [1 - (x == y) for x,y in zip(relative_labels, true_labels)]
+        # If default to zero-shot, add another exit option with the zero-shot loss
+        if default_to_zero_shot:
+            all_losses.append(relative_labels_loss)
+            all_exits.append((lambda_exit_layers[0]+1) * np.ones(losses.shape))
+        all_losses = np.array(all_losses) - np.array(relative_labels_loss)
+
+    return np.array(all_losses), np.array(all_exits)
+
 
 # Lambdas MUST BE in decreasing order
-def get_losses_and_exits_confidence(conf, acc, lambdas, relative_labels, true_labels):
+def get_losses_and_exits_confidence(conf, acc, lambdas, relative_labels, true_labels, default_to_zero_shot=True):
     # Track losses and exit layers
-    all_losses, all_exits, all_rel_losses = [], [], []
+    all_losses, all_exits = [], []
+    true_labels = np.array(true_labels)
+    if relative_labels is not None:
+        relative_labels = np.array(relative_labels)
 
     for lam_idx in range(len(lambdas)): # iterate over lambdas, 1 to 0
         l = lambdas[lam_idx]
@@ -105,6 +113,10 @@ def get_losses_and_exits_confidence(conf, acc, lambdas, relative_labels, true_la
         exits = exits + 1
         # Compute all losses via accuracy
         lambda_acc = acc[np.arange(len(exits)), exits - 1] # accuracy at each of the chosen exit points
+
+        if default_to_zero_shot:
+            lambda_acc[rows_with_no_threshold] = (relative_labels[rows_with_no_threshold] == true_labels[rows_with_no_threshold])
+
         all_exits.append(exits)
         losses = (1 - lambda_acc)
         all_losses.append(losses)
@@ -185,8 +197,6 @@ def rc_main(
     exits: np.array,
     eps_grid: np.array,
     rcp_types: List[str],
-    default_loss: int,
-    default_eff_gain: int,
     binary_loss: bool = False,
     loss_bound: int = 1,
     n_trials: int = 5,
@@ -203,8 +213,6 @@ def rc_main(
         exits: (K,) average exit per threshold
         eps_grid: grid of risk levels
         rcp_types: list of risk control procedures
-        default_loss: when the risk cannot be controlled by any lambda, this will be the loss
-        default_eff_gain: when the risk cannot be controlled by any lambda, this will be the efficiency gain
         binary_loss: whether the loss is binary
         loss_bound: upper bound on the loss
         n_trials: number of trials (calibration/test splits)
@@ -216,7 +224,7 @@ def rc_main(
     np.random.seed(seed)
 
     for x in rcp_types:
-        assert x in ["naive", "ltt", "ucb-wsr", "crc"]
+        assert x in ["naive", "ltt", "ucb-wsr", "crc", "ltt-scaled"]
 
     assert losses.shape[0] == exits.shape[0]
     _, N = losses.shape
@@ -244,6 +252,14 @@ def rc_main(
                     lam_id = ltt_lam(
                         np.maximum(cal_losses, 0.0), eps, delta, binary_loss
                     )
+                    # print(rcp, eps, lam_id)
+                elif rcp == "ltt-scaled":
+                    A = -1
+                    B = 1
+                    lam_id = ltt_lam(
+                        (cal_losses - A) / (B - A), (eps - A) / (B - A), delta, binary_loss
+                    )
+                    # print(rcp, eps, lam_id)
                 elif rcp == "crc":
                     lam_id = crc_lam(cal_losses, eps, loss_bound=loss_bound)
                 rcp_lams[rcp].append(lam_id)
@@ -253,13 +269,8 @@ def rc_main(
             test_risk_e, eff_gains_e = [], []
             for e, eps in enumerate(eps_grid):
                 lam_id = rcp_lams[rcp][e]
-                if lam_id is None:
-                    test_risk_e.append(default_loss)
-                    eff_gains_e.append(default_eff_gain)
-                else:
-                    test_risk_e.append(test_losses[lam_id].mean())
-                    eff_gains_e.append(exits[lam_id])
-            
+                test_risk_e.append(test_losses[lam_id].mean())
+                eff_gains_e.append(exits[lam_id])
             test_risk[rcp].append(test_risk_e)
             eff_gains[rcp].append(eff_gains_e)
 
@@ -311,7 +322,6 @@ def crc_lam(losses: np.array, epsilon: float, loss_bound: float = 1.0) -> int:
     else:
         return lams.max()
 
-
 def ltt_lam(
     losses: np.array, epsilon: float, delta: float, binary_loss: bool
 ) -> int:
@@ -319,9 +329,9 @@ def ltt_lam(
     Find risk controlling lambda based on Learn-then-Test (LTT)
 
     Args:
-        losses: (K, n_cal) where K is the size of the lambda grid.
+        losses: (K, n_cal) where K is the size of the lambda grid. 
                  Rows in losses array correspond to the descending ordering of lambdas.
-        epsilon: tolerated risk level
+        epsilon: tolerated risk level 
         delta: confidence level
         binary_loss: whether the loss is binary
     """
@@ -338,9 +348,9 @@ def ltt_lam(
 
     lams = (np.array(p_vals) <= delta).nonzero()[0]
     if len(lams) == 0:
-        return None
+        return 0
     else:
-        return lams.min()
+        return lams.max()
 
 
 def ucb_lam(
@@ -450,8 +460,8 @@ def ucb_hb(risk, delta, n_cal, binary_loss, step=0.01):
 def hb_p_value(
     risk: float,
     n: int,
-    alpha: float = 0.05,
-    eps: float = 1e-3,
+    alpha: float = 0.05,  # this is actually epsilon from risk control
+    eps: float = 1e-3,  # this is only for numerical stability
     binary_loss: bool = False,
 ):
     """
