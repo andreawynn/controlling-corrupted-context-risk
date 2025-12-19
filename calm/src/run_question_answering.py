@@ -31,6 +31,7 @@ import nltk
 import numpy as np
 from copy import deepcopy
 from sklearn.metrics import f1_score
+from functools import partial
 
 import seaborn as sns
 import pandas as pd
@@ -72,7 +73,6 @@ import wandb
 
 import matplotlib.pyplot as plt
 
-os.environ["WANDB_DISABLED"] = "true"
 logger = logging.getLogger(__name__)
 
 question_answering_column_name_mapping = {
@@ -192,21 +192,19 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         val_answerable = raw_datasets["validation"].filter(is_answerable)
         val_unanswerable = raw_datasets["validation"].filter(lambda ex: not is_answerable(ex))
 
-        # Only do one of 'answerable', 'unanswerable', or 'zeroshot'
+        # Only do one of 'answerable' or 'unanswerable'
         if data_args.context_condition == 'a':
             # Use answerable context
             raw_datasets['train'] = train_answerable
             raw_datasets['validation'] = val_answerable
+            wandb.log({"context_condition": "answerable"})
         elif data_args.context_condition == 'u':
             # Use unanswerable context
             raw_datasets['train'] = train_unanswerable
             raw_datasets['validation'] = val_unanswerable
-        elif data_args.context_condition == 'z':
-            # Zero-shot: no context at all
-            # TODO need to implement
-            raise NotImplementedError("TODO: zero-shot SQuAD2.0 not implemented yet")
+            wandb.log({"context_condition": "unanswerable"})
         else:
-            raise NotImplementedError
+            raise NotImplementedError("Context condition not recognized. Must be answerable (a) or unanswerable (u).")
 
     # For debugging: use a small subset of data
     if additional_args.use_data_subset:
@@ -342,12 +340,15 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         question_column: str,
         context_column: str,
         answer_column: str,
+        zeroshot: bool = False,
     ) -> Tuple[List[str], List[str]]:
         questions = examples[question_column]
         contexts = examples[context_column]
         answers = examples[answer_column]
 
         def generate_input(_question, _context):
+            if zeroshot:
+                return " ".join(["question:", _question.lstrip()])
             return " ".join(["question:", _question.lstrip(), "context:", _context.lstrip()])
 
         inputs = [generate_input(question, context) for question, context in zip(questions, contexts)]
@@ -371,9 +372,9 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         targets = [answer[0]["text"] if len(answer) > 0 else "" for answer in answers]
         return inputs, targets
 
-    def preprocess_function(examples):
+    def preprocess_function(examples, zeroshot: bool = False):
         if "squad" in data_args.dataset_name:
-            inputs, targets = preprocess_squad_batch(examples, question_column, context_column, answer_column)
+            inputs, targets = preprocess_squad_batch(examples, question_column, context_column, answer_column, zeroshot)
         elif data_args.dataset_name == "narrativeqa":
             inputs, targets = preprocess_narrativeqa_batch(examples, question_column, context_column, answer_column)
         else:
@@ -394,9 +395,9 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         return model_inputs
 
     # Validation preprocessing
-    def preprocess_validation_function(examples):            
+    def preprocess_validation_function(examples, zeroshot: bool = False):            
         if "squad" in data_args.dataset_name:
-            inputs, targets = preprocess_squad_batch(examples, question_column, context_column, answer_column)
+            inputs, targets = preprocess_squad_batch(examples, question_column, context_column, answer_column, zeroshot)
             model_inputs = tokenizer(inputs, max_length=max_seq_length, padding=padding, truncation=True,
                                      return_overflowing_tokens=True, return_offsets_mapping=True,)
 
@@ -452,19 +453,32 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             max_train_samples = min(len(train_dataset), data_args.max_train_samples)
             train_dataset = train_dataset.select(range(max_train_samples))
         # Create train feature from dataset
-        with training_args.main_process_first(desc="train dataset map pre-processing"):
+        preprocess_fn = partial(preprocess_function, zeroshot=False)
+        with training_args.main_process_first(desc="train dataset map pre-processing (with context)"):
             train_dataset = train_dataset.map(
-                preprocess_function,
+                preprocess_fn, 
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
                 remove_columns=column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on train dataset",
+                desc="Running tokenizer on train dataset (with context)",
+            )
+        # Create zero-shot train feature from dataset
+        zs_preprocess_fn = partial(preprocess_function, zeroshot=True)
+        with training_args.main_process_first(desc="train dataset map pre-processing (without context)"):
+            zeroshot_dataset = train_dataset.map(
+                zs_preprocess_fn, 
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on train dataset (without context)",
             )
         if data_args.max_train_samples is not None:
             # Number of samples might increase during Feature Creation, We select only specified max samples
             max_train_samples = min(len(train_dataset), data_args.max_train_samples)
             train_dataset = train_dataset.select(range(max_train_samples))
+            zeroshot_dataset = zeroshot_dataset.select(range(max_train_samples))
 
     if training_args.do_eval:
         if "validation" not in raw_datasets:
@@ -475,19 +489,32 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             max_eval_samples = min(len(eval_examples), data_args.max_eval_samples)
             eval_examples = eval_examples.select(range(max_eval_samples))
         # Validation Feature Creation
+        preprocess_fn = partial(preprocess_validation_function, zeroshot=False)
         with training_args.main_process_first(desc="validation dataset map pre-processing"):
             eval_dataset = eval_examples.map(
-                preprocess_validation_function,
+                preprocess_fn,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
                 remove_columns=column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on validation dataset",
             )
+        # Zero-Shot Validation Feature Creation
+        zs_preprocess_fn = partial(preprocess_validation_function, zeroshot=True)
+        with training_args.main_process_first(desc="validation dataset map pre-processing (zeroshot)"):
+            zs_eval_dataset = eval_examples.map(
+                zs_preprocess_fn,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on validation dataset (zeroshot)",
+            )
         if data_args.max_eval_samples is not None:
             # During Feature creation dataset samples might increase, we will select required samples again
             max_eval_samples = min(len(eval_dataset), data_args.max_eval_samples)
             eval_dataset = eval_dataset.select(range(max_eval_samples))
+            zs_eval_dataset = zs_eval_dataset.select(range(max_eval_samples))
 
     if training_args.do_predict:
         if "test" not in raw_datasets:
@@ -497,19 +524,32 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             # We will select sample from whole data
             predict_examples = predict_examples.select(range(data_args.max_predict_samples))
         # Predict Feature Creation
+        preprocess_fn = partial(preprocess_validation_function, zeroshot=False)
         with training_args.main_process_first(desc="prediction dataset map pre-processing"):
             predict_dataset = predict_examples.map(
-                preprocess_validation_function,
+                preprocess_fn,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
                 remove_columns=column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on prediction dataset",
             )
+        # Zero-Shot Predict Feature Creation
+        zs_preprocess_fn = partial(preprocess_validation_function, zeroshot=True)
+        with training_args.main_process_first(desc="prediction dataset map pre-processing (zeroshot)"):
+            zs_predict_dataset = predict_examples.map(
+                zs_preprocess_fn,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on prediction dataset (zeroshot)",
+            )
         if data_args.max_predict_samples is not None:
             # During Feature creation dataset samples might increase, we will select required samples again
-            max_predict_samples = min(len(predict_dataset), data_args.max_predict_samples)
+            max_predict_samples = min(len(zs_predict_dataset), data_args.max_predict_samples)
             predict_dataset = predict_dataset.select(range(max_predict_samples))
+            zs_predict_dataset = zs_predict_dataset.select(range(max_predict_samples))
 
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
@@ -615,132 +655,161 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # adjust training arguments
     training_args = adjust_training_args(training_args, data_args, additional_args)
-    
+
+    def train_eval_predict(trainer, train_dataset, predict_dataset, eval_dataset, zeroshot: bool):
+        if zeroshot:
+            wandb.log({"eval_type": "zeroshot"})
+        else:         
+            wandb.log({"eval_type": "with_context"})
+        # Training
+        if training_args.do_train:
+            checkpoint = None
+            if training_args.resume_from_checkpoint is not None:
+                checkpoint = training_args.resume_from_checkpoint
+            elif last_checkpoint is not None:
+                checkpoint = last_checkpoint
+            train_result = trainer.train(resume_from_checkpoint=checkpoint)
+            if not additional_args.use_lora: trainer.save_model()  # Saves the tokenizer too for easy upload
+
+            metrics = train_result.metrics
+            max_train_samples = (
+                data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
+            )
+            metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
+            trainer.save_state()
+
+            if additional_args.use_lora:
+                model.save_pretrained(training_args.output_dir)  # save adapter_config.json
+                model.base_model.save_pretrained(training_args.output_dir)  # save config.json
+
+        # Evaluation
+        results = {}
+        max_length = (
+            training_args.generation_max_length
+            if training_args.generation_max_length is not None
+            else data_args.val_max_answer_length
+        )
+        num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
+        if training_args.do_eval:
+            logger.info("*** Evaluate ***")
+            # evaluation metrics could be differ from evaluation during training
+            # refer to https://discuss.huggingface.co/t/evaluation-results-metric-during-training-is-different-from-the-evaluation-results-at-the-end/15401/3
+            if training_args.include_inputs_for_metrics:
+                output = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
+                metrics = output.metrics
+                if additional_args.count_flops:
+                    final_flops = model.decoder.flop_counter/model.decoder.count_passes
+                    wandb.log({"FLOP/Token": final_flops})
+                    flops_sample = model.decoder.flop_counter/len(eval_dataset)
+                    wandb.log({"FLOP/Sample": flops_sample})
+                    total_flops = model.decoder.flop_counter
+                    wandb.log({"Total_FLOP": total_flops})
+            else:
+                metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
+
+            if additional_args.plotting_logits:
+                data = model.decoder.graph_top_k_list
+                max_length = max(len(arr) for arr in data)
+
+                # Pad arrays with NaNs to ensure they are all the same length
+                padded_data = [np.pad(np.array(arr, dtype=float),  # Convert array to float
+                            (0, max_length - len(arr)),
+                            mode='constant',
+                            constant_values=np.nan)
+                    for arr in data]
+                
+                # Convert the list of arrays into a single NumPy array
+                padded_array = np.array(padded_data)
+
+                # Converting the array to a DataFrame for easier handling in seaborn
+                df = pd.DataFrame(padded_array)
+                table = wandb.Table(dataframe=df)
+                wandb.log({'plotting_logits': table})
+
+                # Creating a boxplot
+                plt.figure(figsize=(12, 8))
+                sns.boxplot(data=df)
+                plt.title('Rank of the final predicted token at each layer', fontsize=20)
+                plt.xlabel('Layer', fontsize=16)
+                plt.ylabel('Rank of the final predicted token', fontsize=16)
+                plt.grid(True)
+                file_path = "plots/boxplot_topk_rank_eval" + data_args.dataset_name.replace("/", "_") + "_" + model_args.model_name_or_path.replace("/", "_") + ".png"
+                plt.savefig(file_path)
+                wandb.log({"Boxplot": wandb.Image(file_path)})
+
+            max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
+            metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
+
+            trainer.log_metrics("eval", metrics)
+            trainer.save_metrics("eval", metrics)
+        # Prediction
+        if training_args.do_predict:
+            logger.info("*** Predict ***")
+            results = trainer.predict(predict_dataset, predict_examples)
+            metrics = results.metrics
+
+            max_predict_samples = (
+                data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
+            )
+            metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
+
+            trainer.log_metrics("predict", metrics)
+            trainer.save_metrics("predict", metrics)
+
+        if training_args.push_to_hub:
+            kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "question-answering" + ("-zeroshot" if zeroshot else "")}
+            if data_args.dataset_name is not None:
+                kwargs["dataset_tags"] = data_args.dataset_name
+                if data_args.dataset_config_name is not None:
+                    kwargs["dataset_args"] = data_args.dataset_config_name
+                    kwargs["dataset"] = f"{data_args.dataset_name} {data_args.dataset_config_name}"
+                else:
+                    kwargs["dataset"] = data_args.dataset_name
+
+            trainer.push_to_hub(**kwargs)
+
+        return results, metrics
+        
+    train_data = train_dataset if training_args.do_train else None
+    eval_data = eval_dataset if training_args.do_eval else None
+    eval_ex = eval_examples if training_args.do_eval else None
+    predict_data = predict_dataset if training_args.do_predict else None
     trainer = trainer_cls(
         model=model,
         args=training_args,
-        train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
-        eval_examples=eval_examples if training_args.do_eval else None,
+        train_dataset=train_data,
+        eval_dataset=eval_data,
+        eval_examples=eval_ex,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
         post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
     )
 
-    # Training
-    if training_args.do_train:
-        checkpoint = None
-        if training_args.resume_from_checkpoint is not None:
-            checkpoint = training_args.resume_from_checkpoint
-        elif last_checkpoint is not None:
-            checkpoint = last_checkpoint
-        train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        if not additional_args.use_lora: trainer.save_model()  # Saves the tokenizer too for easy upload
+    results, metrics = train_eval_predict(trainer, train_data, predict_data, eval_data, zeroshot=False)
 
-        metrics = train_result.metrics
-        max_train_samples = (
-            data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
-
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
-        trainer.save_state()
-
-        if additional_args.use_lora:
-            model.save_pretrained(training_args.output_dir)  # save adapter_config.json
-            model.base_model.save_pretrained(training_args.output_dir)  # save config.json
-
-    # Evaluation
-    results = {}
-    max_length = (
-        training_args.generation_max_length
-        if training_args.generation_max_length is not None
-        else data_args.val_max_answer_length
+    zs_train_data = zs_train_dataset if training_args.do_train else None
+    zs_eval_data = zs_eval_dataset if training_args.do_eval else None
+    zs_predict_data = zs_predict_dataset if training_args.do_predict else None
+    trainer = trainer_cls(
+        model=model,
+        args=training_args,
+        train_dataset=zs_train_data,
+        eval_dataset=zs_eval_data,
+        eval_examples=eval_ex,
+        tokenizer=tokenizer,
+        data_collator=data_collator,
+        compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
+        post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
     )
-    num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
-    if training_args.do_eval:
-        logger.info("*** Evaluate ***")
-        # evaluation metrics could be differ from evaluation during training
-        # refer to https://discuss.huggingface.co/t/evaluation-results-metric-during-training-is-different-from-the-evaluation-results-at-the-end/15401/3
-        if training_args.include_inputs_for_metrics:
-            output = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-            metrics = output.metrics
-            if additional_args.count_flops:
-                final_flops = model.decoder.flop_counter/model.decoder.count_passes
-                wandb.log({"FLOP/Token": final_flops})
-                flops_sample = model.decoder.flop_counter/len(eval_dataset)
-                wandb.log({"FLOP/Sample": flops_sample})
-                total_flops = model.decoder.flop_counter
-                wandb.log({"Total_FLOP": total_flops})
-        else:
-            metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
 
-        if additional_args.plotting_logits:
-            data = model.decoder.graph_top_k_list
-            max_length = max(len(arr) for arr in data)
+    zs_results, zs_metrics = train_eval_predict(trainer, zs_train_data, zs_predict_data, zs_eval_data, zeroshot=True)
 
-            # Pad arrays with NaNs to ensure they are all the same length
-            padded_data = [np.pad(np.array(arr, dtype=float),  # Convert array to float
-                        (0, max_length - len(arr)),
-                        mode='constant',
-                        constant_values=np.nan)
-                for arr in data]
-            
-            # Convert the list of arrays into a single NumPy array
-            padded_array = np.array(padded_data)
-
-            # Converting the array to a DataFrame for easier handling in seaborn
-            df = pd.DataFrame(padded_array)
-            table = wandb.Table(dataframe=df)
-            wandb.log({'plotting_logits': table})
-
-            # Creating a boxplot
-            plt.figure(figsize=(12, 8))
-            sns.boxplot(data=df)
-            plt.title('Rank of the final predicted token at each layer', fontsize=20)
-            plt.xlabel('Layer', fontsize=16)
-            plt.ylabel('Rank of the final predicted token', fontsize=16)
-            plt.grid(True)
-            file_path = "plots/boxplot_topk_rank_eval" + data_args.dataset_name.replace("/", "_") + "_" + model_args.model_name_or_path.replace("/", "_") + ".png"
-            plt.savefig(file_path)
-            wandb.log({"Boxplot": wandb.Image(file_path)})
-
-        max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
-        metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
-
-    # Prediction
-    if training_args.do_predict:
-        logger.info("*** Predict ***")
-        results = trainer.predict(predict_dataset, predict_examples)
-        metrics = results.metrics
-
-        max_predict_samples = (
-            data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
-        )
-        metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
-
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
-
-    if training_args.push_to_hub:
-        kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "question-answering"}
-        if data_args.dataset_name is not None:
-            kwargs["dataset_tags"] = data_args.dataset_name
-            if data_args.dataset_config_name is not None:
-                kwargs["dataset_args"] = data_args.dataset_config_name
-                kwargs["dataset"] = f"{data_args.dataset_name} {data_args.dataset_config_name}"
-            else:
-                kwargs["dataset"] = data_args.dataset_name
-
-        trainer.push_to_hub(**kwargs)
-        
     if not jupyter:
-        return results, metrics
+        return results, metrics, zs_results, zs_metrics
     else:
         return trainer, metrics
 
@@ -749,7 +818,13 @@ if __name__ == "__main__":
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-    #os.environ["WANDB_DISABLED"] = "true"
+    os.environ["WANDB_DISABLED"] = "false"
+    # Initialize a new run
+    wandb.init(
+        project="calm-squad",
+        entity="awynn13-johns-hopkins-university",
+        mode="online",
+    )
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdditionalArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -784,7 +859,7 @@ if __name__ == "__main__":
         print("Wandb repository is not available")
         pass
 
-    main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls)
+    results, metrics, zs_results, zs_metrics = main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls)
     try:
         wandb.finish()
     except:
