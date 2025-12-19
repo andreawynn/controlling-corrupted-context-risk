@@ -54,6 +54,8 @@ from transformers import (
 from transformers.trainer_utils import EvalLoopOutput, EvalPrediction, get_last_checkpoint
 from transformers.utils import check_min_version, is_offline_mode, send_example_telemetry
 from transformers.utils.versions import require_version
+from transformers import T5ForConditionalGeneration as HfT5ForConditionalGeneration
+from transformers import Seq2SeqTrainer
 
 from qa_lib import (
     ModelArguments,
@@ -657,10 +659,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     training_args = adjust_training_args(training_args, data_args, additional_args)
 
     def train_eval_predict(trainer, train_dataset, predict_dataset, eval_dataset, zeroshot: bool):
-        if zeroshot:
-            wandb.log({"eval_type": "zeroshot"})
-        else:         
-            wandb.log({"eval_type": "with_context"})
+        zeroshot_str = "_zeroshot" if zeroshot else ""
         # Training
         if training_args.do_train:
             checkpoint = None
@@ -677,10 +676,20 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             )
             metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
-            trainer.log_metrics("train", metrics)
-            trainer.save_metrics("train", metrics)
+            trainer.log_metrics("train" + zeroshot_str, metrics)
+            trainer.save_metrics("train" + zeroshot_str, metrics)
             trainer.save_state()
 
+            # Log to wandb summary; this way we also preserve zeroshot
+            wandb.run.summary[f"train{zeroshot_str}/train_samples"] = metrics["train_samples"]
+            if zeroshot:
+                # Used the full model
+                wandb.run.summary[f"train{zeroshot_str}/avg_exit"] = model.config.num_hidden_layers
+                wandb.run.summary[f"train{zeroshot_str}/train_loss"] = metrics["train_loss"]
+            else:
+                wandb.run.summary[f"train{zeroshot_str}/avg_exit"] = metrics["train_block_avg"]
+                wandb.run.summary[f"train{zeroshot_str}/train_exact_match"] = metrics["train_exact_match"]
+            
             if additional_args.use_lora:
                 model.save_pretrained(training_args.output_dir)  # save adapter_config.json
                 model.base_model.save_pretrained(training_args.output_dir)  # save config.json
@@ -697,16 +706,16 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             logger.info("*** Evaluate ***")
             # evaluation metrics could be differ from evaluation during training
             # refer to https://discuss.huggingface.co/t/evaluation-results-metric-during-training-is-different-from-the-evaluation-results-at-the-end/15401/3
-            if training_args.include_inputs_for_metrics:
+            if training_args.include_inputs_for_metrics and not zeroshot:
                 output = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
                 metrics = output.metrics
                 if additional_args.count_flops:
                     final_flops = model.decoder.flop_counter/model.decoder.count_passes
-                    wandb.log({"FLOP/Token": final_flops})
+                    wandb.log({"FLOP/Token" + zeroshot_str: final_flops})
                     flops_sample = model.decoder.flop_counter/len(eval_dataset)
-                    wandb.log({"FLOP/Sample": flops_sample})
+                    wandb.log({"FLOP/Sample" + zeroshot_str: flops_sample})
                     total_flops = model.decoder.flop_counter
-                    wandb.log({"Total_FLOP": total_flops})
+                    wandb.log({"Total_FLOP" + zeroshot_str: total_flops})
             else:
                 metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
 
@@ -727,7 +736,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 # Converting the array to a DataFrame for easier handling in seaborn
                 df = pd.DataFrame(padded_array)
                 table = wandb.Table(dataframe=df)
-                wandb.log({'plotting_logits': table})
+                wandb.log({'plotting_logits' + zeroshot_str: table})
 
                 # Creating a boxplot
                 plt.figure(figsize=(12, 8))
@@ -738,13 +747,24 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 plt.grid(True)
                 file_path = "plots/boxplot_topk_rank_eval" + data_args.dataset_name.replace("/", "_") + "_" + model_args.model_name_or_path.replace("/", "_") + ".png"
                 plt.savefig(file_path)
-                wandb.log({"Boxplot": wandb.Image(file_path)})
+                wandb.log({"Boxplot" + zeroshot_str: wandb.Image(file_path)})
 
             max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
 
-            trainer.log_metrics("eval", metrics)
-            trainer.save_metrics("eval", metrics)
+            trainer.log_metrics("eval" + zeroshot_str, metrics)
+            trainer.save_metrics("eval" + zeroshot_str, metrics)
+
+            # Log to wandb summary; this way we also preserve zeroshot
+            wandb.run.summary[f"eval{zeroshot_str}/eval_samples"] = metrics["eval_samples"]
+            if zeroshot:
+                # Used the full model
+                wandb.run.summary[f"eval{zeroshot_str}/avg_exit"] = model.config.num_hidden_layers
+                wandb.run.summary[f"eval{zeroshot_str}/eval_loss"] = metrics["eval_loss"]
+            else:
+                wandb.run.summary[f"eval{zeroshot_str}/avg_exit"] = metrics["eval_block_avg"]
+                wandb.run.summary[f"eval{zeroshot_str}/eval_exact_match"] = metrics["eval_exact_match"]
+
         # Prediction
         if training_args.do_predict:
             logger.info("*** Predict ***")
@@ -756,11 +776,22 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             )
             metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
 
-            trainer.log_metrics("predict", metrics)
-            trainer.save_metrics("predict", metrics)
+            trainer.log_metrics("predict" + zeroshot_str, metrics)
+            trainer.save_metrics("predict" + zeroshot_str, metrics)
+
+            # Log to wandb summary; this way we also preserve zeroshot
+            wandb.run.summary[f"predict{zeroshot_str}/predict_samples"] = metrics["predict_samples"]
+            if zeroshot:
+                # Used the full model
+                wandb.run.summary[f"predict{zeroshot_str}/avg_exit"] = model.config.num_hidden_layers
+                wandb.run.summary[f"predict{zeroshot_str}/predict_loss"] = metrics["predict_loss"]
+            else:
+                wandb.run.summary[f"predict{zeroshot_str}/avg_exit"] = metrics["predict_block_avg"]
+                wandb.run.summary[f"predict{zeroshot_str}/predict_exact_match"] = metrics["predict_exact_match"]
+            
 
         if training_args.push_to_hub:
-            kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "question-answering" + ("-zeroshot" if zeroshot else "")}
+            kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "question-answering" + zeroshot_str}
             if data_args.dataset_name is not None:
                 kwargs["dataset_tags"] = data_args.dataset_name
                 if data_args.dataset_config_name is not None:
@@ -794,16 +825,41 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     zs_train_data = zs_train_dataset if training_args.do_train else None
     zs_eval_data = zs_eval_dataset if training_args.do_eval else None
     zs_predict_data = zs_predict_dataset if training_args.do_predict else None
-    trainer = trainer_cls(
-        model=model,
+    # TODO for zero-shot use the non early exit model!
+    # model = T5ForConditionalGeneration.from_pretrained(
+    #     model_name,
+    #     from_tf=bool(".ckpt" in model_args.model_name_or_path),
+    #     #config=config,
+    #     cache_dir=model_args.cache_dir,
+    #     revision=model_args.model_revision,
+    #     use_auth_token=True if model_args.use_auth_token else None,
+    # )
+    config = AutoConfig.from_pretrained(
+        config_name,
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
+    # Don't call update_autoconfig - skip the early-exit config modifications
+
+    # Load standard HuggingFace model
+    zs_model = HfT5ForConditionalGeneration.from_pretrained(
+        model_name,  # e.g., "t5-base", "t5-large", etc.
+        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        config=config,
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
+    trainer = Seq2SeqTrainer(
+        model=zs_model,
         args=training_args,
         train_dataset=zs_train_data,
         eval_dataset=zs_eval_data,
-        eval_examples=eval_ex,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
-        post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
+        #compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
+        #post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
     )
 
     zs_results, zs_metrics = train_eval_predict(trainer, zs_train_data, zs_predict_data, zs_eval_data, zeroshot=True)
@@ -819,12 +875,6 @@ if __name__ == "__main__":
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
     os.environ["WANDB_DISABLED"] = "false"
-    # Initialize a new run
-    wandb.init(
-        project="calm-squad",
-        entity="awynn13-johns-hopkins-university",
-        mode="online",
-    )
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdditionalArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -833,31 +883,28 @@ if __name__ == "__main__":
     else:
         model_args, data_args, training_args, additional_args = parser.parse_args_into_dataclasses()
 
+    # Initialize a new run
+    wandb.login()
+    wandb.init(
+        project="calm-squad",
+        entity="awynn13-johns-hopkins-university",
+        mode="online",
+        # track hyperparameters and run metadata
+        config={
+            "dataset": data_args.dataset_name,
+            "model": model_args.model_name_or_path, 
+            "exit_conf_type": additional_args.exit_conf_type,
+            "exit_conf_threshold": additional_args.exit_conf_threshold,
+            "exit_min_layer": additional_args.exit_min_layer,
+            "type_vocab_reduct": additional_args.type_vocab_reduct,
+            "lambda_threshold": additional_args.exit_conf_threshold,
+            },
+    )
+
     if data_args.dataset_name in ["squad", "squad_v2", "narrativeqa"]:
         model_cls = T5ForConditionalGeneration if not additional_args.deploy_scenario else DeployT5ForConditionalGeneration
     trainer_cls = QATrainer
     training_args.include_inputs_for_metrics = True
-    try:
-        wandb.login()
-
-        wandb.init(
-            # set the wandb project where this run will be logged
-            project="ProjectName",
-            entity="ProjectDirectory",
-            # track hyperparameters and run metadata
-            config={
-                "dataset": data_args.dataset_name,
-                "model": model_args.model_name_or_path, 
-                "exit_conf_type": additional_args.exit_conf_type,
-                "exit_conf_threshold": additional_args.exit_conf_threshold,
-                "exit_min_layer": additional_args.exit_min_layer,
-                "type_vocab_reduct": additional_args.type_vocab_reduct,
-                },
-            mode="disabled" if False else "online",
-        )
-    except:
-        print("Wandb repository is not available")
-        pass
 
     results, metrics, zs_results, zs_metrics = main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls)
     try:
