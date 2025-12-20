@@ -682,13 +682,12 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
             # Log to wandb summary; this way we also preserve zeroshot
             wandb.run.summary[f"train{zeroshot_str}/train_samples"] = metrics["train_samples"]
+            wandb.run.summary[f"train{zeroshot_str}/train_exact_match"] = metrics["train_exact_match"]
             if zeroshot:
                 # Used the full model
                 wandb.run.summary[f"train{zeroshot_str}/avg_exit"] = model.config.num_hidden_layers
-                wandb.run.summary[f"train{zeroshot_str}/train_loss"] = metrics["train_loss"]
             else:
                 wandb.run.summary[f"train{zeroshot_str}/avg_exit"] = metrics["train_block_avg"]
-                wandb.run.summary[f"train{zeroshot_str}/train_exact_match"] = metrics["train_exact_match"]
             
             if additional_args.use_lora:
                 model.save_pretrained(training_args.output_dir)  # save adapter_config.json
@@ -757,13 +756,12 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
             # Log to wandb summary; this way we also preserve zeroshot
             wandb.run.summary[f"eval{zeroshot_str}/eval_samples"] = metrics["eval_samples"]
+            wandb.run.summary[f"eval{zeroshot_str}/eval_exact_match"] = metrics["eval_exact_match"]
             if zeroshot:
                 # Used the full model
                 wandb.run.summary[f"eval{zeroshot_str}/avg_exit"] = model.config.num_hidden_layers
-                wandb.run.summary[f"eval{zeroshot_str}/eval_loss"] = metrics["eval_loss"]
             else:
                 wandb.run.summary[f"eval{zeroshot_str}/avg_exit"] = metrics["eval_block_avg"]
-                wandb.run.summary[f"eval{zeroshot_str}/eval_exact_match"] = metrics["eval_exact_match"]
 
         # Prediction
         if training_args.do_predict:
@@ -781,13 +779,12 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
             # Log to wandb summary; this way we also preserve zeroshot
             wandb.run.summary[f"predict{zeroshot_str}/predict_samples"] = metrics["predict_samples"]
+            wandb.run.summary[f"predict{zeroshot_str}/predict_exact_match"] = metrics["predict_exact_match"]
             if zeroshot:
                 # Used the full model
                 wandb.run.summary[f"predict{zeroshot_str}/avg_exit"] = model.config.num_hidden_layers
-                wandb.run.summary[f"predict{zeroshot_str}/predict_loss"] = metrics["predict_loss"]
             else:
                 wandb.run.summary[f"predict{zeroshot_str}/avg_exit"] = metrics["predict_block_avg"]
-                wandb.run.summary[f"predict{zeroshot_str}/predict_exact_match"] = metrics["predict_exact_match"]
             
 
         if training_args.push_to_hub:
@@ -825,23 +822,14 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     zs_train_data = zs_train_dataset if training_args.do_train else None
     zs_eval_data = zs_eval_dataset if training_args.do_eval else None
     zs_predict_data = zs_predict_dataset if training_args.do_predict else None
-    # TODO for zero-shot use the non early exit model!
-    # model = T5ForConditionalGeneration.from_pretrained(
-    #     model_name,
-    #     from_tf=bool(".ckpt" in model_args.model_name_or_path),
-    #     #config=config,
-    #     cache_dir=model_args.cache_dir,
-    #     revision=model_args.model_revision,
-    #     use_auth_token=True if model_args.use_auth_token else None,
-    # )
+    # For zero-shot use the non early exit model and default trainer
+    # Don't call update_autoconfig - skip the early-exit config modifications
     config = AutoConfig.from_pretrained(
         config_name,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    # Don't call update_autoconfig - skip the early-exit config modifications
-
     # Load standard HuggingFace model
     zs_model = HfT5ForConditionalGeneration.from_pretrained(
         model_name,  # e.g., "t5-base", "t5-large", etc.
@@ -851,6 +839,44 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    # Compute exact matches for zero-shot
+    def compute_metrics(p: EvalPrediction, prefix: str = None):
+        # Decode labels safely
+        labels = np.where(p.label_ids != -100, p.label_ids, tokenizer.pad_token_id)
+
+        decoded_preds = tokenizer.batch_decode(p.predictions, skip_special_tokens=True)
+        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        predictions = []
+        references = []
+
+        for i, (pred, label) in enumerate(zip(decoded_preds, decoded_labels)):
+            predictions.append({
+                "id": str(i),
+                "prediction_text": pred.strip(),
+                **({"no_answer_probability": 0.0} if data_args.version_2_with_negative else {})
+            })
+            references.append({
+                "id": str(i),
+                "answers": {
+                    "text": [label.strip()],
+                    "answer_start": [0],
+                }
+            })
+
+        metric_dict = metric.compute(
+            predictions=predictions,
+            references=references
+        )
+
+        # Preserve your prefix logic
+        metric_keys = deepcopy(list(metric_dict.keys()))
+        for key in metric_keys:
+            if prefix is not None and prefix not in key:
+                metric_dict[f"{prefix}_{key}"] = metric_dict.pop(key)
+
+        return metric_dict
+
     trainer = Seq2SeqTrainer(
         model=zs_model,
         args=training_args,
@@ -858,8 +884,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         eval_dataset=zs_eval_data,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        #compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
-        #post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
+        compute_metrics=compute_metrics,
     )
 
     zs_results, zs_metrics = train_eval_predict(trainer, zs_train_data, zs_predict_data, zs_eval_data, zeroshot=True)
