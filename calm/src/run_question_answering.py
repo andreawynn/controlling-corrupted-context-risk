@@ -607,12 +607,79 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     elif "squad" in data_args.dataset_name:
         metric = evaluate.load("squad_v2" if data_args.version_2_with_negative else "squad")
         
-        def compute_metrics(p: EvalPrediction, prefix: str = None):
-            metric_dict = metric.compute(predictions=p.predictions, references=p.label_ids)
+        def compute_metrics(p: EvalPrediction, prefix: str = None, compute_losses: bool = True):   
+            # Check if all references have empty text lists (unanswerable questions)
+            all_empty = all(
+                len(ref.get("answers", {}).get("text", [])) == 0 
+                for ref in p.label_ids
+            )
+            
+            if all_empty and len(p.label_ids) > 0:
+                # Handle the case where all questions are unanswerable
+                # Return default metrics for unanswerable questions
+                metric_dict = {
+                    "exact_match": 0.0,
+                    "f1": 0.0,
+                }
+                if data_args.version_2_with_negative:
+                    metric_dict["HasAns_exact"] = 0.0
+                    metric_dict["HasAns_f1"] = 0.0
+                    metric_dict["NoAns_exact"] = 0.0
+                    metric_dict["NoAns_f1"] = 0.0
+                    metric_dict["best_exact"] = 0.0
+                    metric_dict["best_f1"] = 0.0
+                    metric_dict["total"] = len(p.label_ids)
+                    metric_dict["HasAns_total"] = 0
+                    metric_dict["NoAns_total"] = len(p.label_ids)
+            else:
+                try:
+                    metric_dict = metric.compute(predictions=p.predictions, references=p.label_ids)
+                except ValueError as e:
+                    # Handle the case where metric_max_over_ground_truths fails due to empty sequences
+                    if "max() arg is an empty sequence" in str(e):
+                        # Filter out examples with empty ground truths and compute metrics on the rest
+                        filtered_predictions = []
+                        filtered_references = []
+                        for pred, ref in zip(p.predictions, p.label_ids):
+                            if len(ref.get("answers", {}).get("text", [])) > 0:
+                                filtered_predictions.append(pred)
+                                filtered_references.append(ref)
+                        
+                        if len(filtered_predictions) > 0:
+                            metric_dict = metric.compute(predictions=filtered_predictions, references=filtered_references)
+                        else:
+                            # All examples have empty ground truths
+                            metric_dict = {
+                                "exact_match": 0.0,
+                                "f1": 0.0,
+                            }
+                            if data_args.version_2_with_negative:
+                                metric_dict["HasAns_exact"] = 0.0
+                                metric_dict["HasAns_f1"] = 0.0
+                                metric_dict["NoAns_exact"] = 0.0
+                                metric_dict["NoAns_f1"] = 0.0
+                                metric_dict["best_exact"] = 0.0
+                                metric_dict["best_f1"] = 0.0
+                                metric_dict["total"] = len(p.label_ids)
+                                metric_dict["HasAns_total"] = 0
+                                metric_dict["NoAns_total"] = len(p.label_ids)
+                    else:
+                        raise e
+            
             metric_keys = deepcopy(list(metric_dict.keys()))
             for key in metric_keys:
                 if prefix is not None and prefix not in key:
                     metric_dict['{}_{}'.format(prefix, key)] = metric_dict.pop(key)
+            if compute_losses:
+                losses = []
+                for i in range(len(p.predictions)):
+                    try:
+                        loss_metric = metric.compute(predictions=[p.predictions[i]], references=[p.label_ids[i]])
+                        losses.append(loss_metric.get('f1', 0.0))
+                    except (ValueError, KeyError):
+                        # Handle empty ground truths for individual examples
+                        losses.append(0.0)
+                metric_dict['losses'] = str(losses)
             return metric_dict
         
     else:
@@ -718,6 +785,13 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             else:
                 metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
 
+            # Convert to a mutable dictionary
+            if isinstance(eval_output, dict):
+                metrics = eval_output
+            else:
+                # It's an EvalLoopOutput object, extract the metrics
+                metrics = eval_output.metrics if hasattr(eval_output, 'metrics') else {}
+
             if additional_args.plotting_logits:
                 data = model.decoder.graph_top_k_list
                 max_length = max(len(arr) for arr in data)
@@ -801,96 +875,46 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
         return results, metrics
         
-    train_data = train_dataset if training_args.do_train else None
-    eval_data = eval_dataset if training_args.do_eval else None
-    eval_ex = eval_examples if training_args.do_eval else None
-    predict_data = predict_dataset if training_args.do_predict else None
-    trainer = trainer_cls(
-        model=model,
-        args=training_args,
-        train_dataset=train_data,
-        eval_dataset=eval_data,
-        eval_examples=eval_ex,
-        tokenizer=tokenizer,
-        data_collator=data_collator,
-        compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
-        post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
-    )
-
-    results, metrics = train_eval_predict(trainer, train_data, predict_data, eval_data, zeroshot=False)
-
-    zs_train_data = zs_train_dataset if training_args.do_train else None
-    zs_eval_data = zs_eval_dataset if training_args.do_eval else None
-    zs_predict_data = zs_predict_dataset if training_args.do_predict else None
-    # For zero-shot use the non early exit model and default trainer
-    # Don't call update_autoconfig - skip the early-exit config modifications
-    config = AutoConfig.from_pretrained(
-        config_name,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
-    # Load standard HuggingFace model
-    zs_model = HfT5ForConditionalGeneration.from_pretrained(
-        model_name,  # e.g., "t5-base", "t5-large", etc.
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
-    # Compute exact matches for zero-shot
-    def compute_metrics(p: EvalPrediction, prefix: str = None):
-        # Decode labels safely
-        labels = np.where(p.label_ids != -100, p.label_ids, tokenizer.pad_token_id)
-
-        decoded_preds = tokenizer.batch_decode(p.predictions, skip_special_tokens=True)
-        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-        predictions = []
-        references = []
-
-        for i, (pred, label) in enumerate(zip(decoded_preds, decoded_labels)):
-            predictions.append({
-                "id": str(i),
-                "prediction_text": pred.strip(),
-                **({"no_answer_probability": 0.0} if data_args.version_2_with_negative else {})
-            })
-            references.append({
-                "id": str(i),
-                "answers": {
-                    "text": [label.strip()],
-                    "answer_start": [0],
-                }
-            })
-
-        metric_dict = metric.compute(
-            predictions=predictions,
-            references=references
+    if data_args.run_zeroshot == 'N':
+        train_data = train_dataset if training_args.do_train else None
+        eval_data = eval_dataset if training_args.do_eval else None
+        eval_ex = eval_examples if training_args.do_eval else None
+        predict_data = predict_dataset if training_args.do_predict else None
+        trainer = trainer_cls(
+            model=model,
+            args=training_args,
+            train_dataset=train_data,
+            eval_dataset=eval_data,
+            eval_examples=eval_ex,
+            tokenizer=tokenizer,
+            data_collator=data_collator,
+            compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
+            post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
         )
 
-        # Preserve your prefix logic
-        metric_keys = deepcopy(list(metric_dict.keys()))
-        for key in metric_keys:
-            if prefix is not None and prefix not in key:
-                metric_dict[f"{prefix}_{key}"] = metric_dict.pop(key)
-
-        return metric_dict
-
-    trainer = Seq2SeqTrainer(
-        model=zs_model,
-        args=training_args,
-        train_dataset=zs_train_data,
-        eval_dataset=zs_eval_data,
-        tokenizer=tokenizer,
-        data_collator=data_collator,
-        compute_metrics=compute_metrics,
-    )
-
-    zs_results, zs_metrics = train_eval_predict(trainer, zs_train_data, zs_predict_data, zs_eval_data, zeroshot=True)
+        results, metrics = train_eval_predict(trainer, train_data, predict_data, eval_data, zeroshot=False)
+    elif data_args.run_zeroshot == 'Y':
+        zs_train_data = zs_train_dataset if training_args.do_train else None
+        zs_eval_data = zs_eval_dataset if training_args.do_eval else None
+        zs_predict_data = zs_predict_dataset if training_args.do_predict else None
+        # For zero-shot use the same CALM model but with zero-shot datasets and lambda=1.0
+        trainer = trainer_cls(
+            model=model,
+            args=training_args,
+            train_dataset=zs_train_data,
+            eval_dataset=zs_eval_data,
+            eval_examples=eval_ex,
+            tokenizer=tokenizer,
+            data_collator=data_collator,
+            compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
+            post_process_function=post_processing_function if "squad" in data_args.dataset_name else None,
+        )
+        results, metrics = train_eval_predict(trainer, zs_train_data, zs_predict_data, zs_eval_data, zeroshot=True)
+    else:
+        raise ValueError("data_args.run_zeroshot must be 'Y' or 'N'")
 
     if not jupyter:
-        return results, metrics, zs_results, zs_metrics
+        return results, metrics
     else:
         return trainer, metrics
 
@@ -899,7 +923,7 @@ if __name__ == "__main__":
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-    os.environ["WANDB_DISABLED"] = "false"
+    os.environ["WANDB_DISABLED"] = "true"
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdditionalArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -926,12 +950,27 @@ if __name__ == "__main__":
             },
     )
 
+    # Make sure if we're running the zero-shot model that lambda=1.0
+    if data_args.run_zeroshot == 'Y':
+        additional_args.exit_conf_threshold = 1.0
+
     if data_args.dataset_name in ["squad", "squad_v2", "narrativeqa"]:
         model_cls = T5ForConditionalGeneration if not additional_args.deploy_scenario else DeployT5ForConditionalGeneration
     trainer_cls = QATrainer
     training_args.include_inputs_for_metrics = True
 
-    results, metrics, zs_results, zs_metrics = main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls)
+    results, metrics = main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls)
+
+    # Save out the results to a local file
+    folder = "outputs/lambda_" + str(additional_args.exit_conf_threshold) + "/"
+    os.makedirs(folder, exist_ok=True)
+    zeroshot_str = "" if data_args.run_zeroshot == 'N' else "_zeroshot"
+    with open(folder + data_args.context_condition + zeroshot_str + "_losses.txt", "w") as file:
+        file.write(metrics.get("losses", ""))
+        # Also write out the average exit on a new line
+        file.write("\n")
+        file.write(wandb.run.summary[f"eval{zeroshot_str}/avg_exit"])
+
     try:
         wandb.finish()
     except:

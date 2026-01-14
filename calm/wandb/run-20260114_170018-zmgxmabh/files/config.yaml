@@ -1,0 +1,165 @@
+_wandb:
+    value:
+        cli_version: 0.23.1
+        e:
+            av48ofah3duuwkdmmpon5j9ep5axv8wi:
+                args:
+                    - --model_name_or_path
+                    - google-t5/t5-large
+                    - --do_eval
+                    - --use_data_subset
+                    - "False"
+                    - --dataset_name
+                    - squad_v2
+                    - --context_column
+                    - context
+                    - --question_column
+                    - question
+                    - --answer_column
+                    - answers
+                    - --output_dir
+                    - ./save/squad_t5-large/
+                    - --per_device_eval_batch_size
+                    - "1"
+                    - --deploy_scenario
+                    - "True"
+                    - --use_synchronize
+                    - "True"
+                    - --overwrite_output_dir
+                    - --predict_with_generate
+                    - --max_seq_length
+                    - "512"
+                    - --use_early_exit
+                    - "True"
+                    - --exit_conf_type
+                    - softmax
+                    - --exit_conf_threshold
+                    - "1.000"
+                    - --exit_min_layer
+                    - "12"
+                    - --include_inputs_for_metrics
+                    - "False"
+                    - --use_auth_token
+                    - "False"
+                    - --type_vocab_reduct
+                    - "True"
+                    - --k
+                    - "256"
+                    - --context_condition
+                    - u
+                    - --run_zeroshot
+                    - "N"
+                codePath: calm/src/run_question_answering.py
+                codePathLocal: src/run_question_answering.py
+                cpu_count: 128
+                cpu_count_logical: 128
+                cudaVersion: "13.1"
+                disk:
+                    /:
+                        total: "3836626923520"
+                        used: "276054831104"
+                email: awynn13@jh.edu
+                executable: /scratch/enalisn1/awynn/anaconda3/envs/calm_squad/bin/python
+                git:
+                    commit: 28239cfb25cff66d0471d74cd8ab7c753ab3234c
+                    remote: https://github.com/andreawynn/llm-risk-control.git
+                gpu: NVIDIA L40S
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "48305799168"
+                      name: NVIDIA L40S
+                      uuid: GPU-6590a276-ec41-8113-2926-d7bf2db8a7a4
+                host: l03
+                memory:
+                    total: "811300184064"
+                os: Linux-4.18.0-553.74.1.el8_10.x86_64-x86_64-with-glibc2.28
+                program: /weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py
+                python: CPython 3.10.12
+                root: /weka/scratch/enalisn1/awynn/llm-risk-control/calm
+                slurm:
+                    cluster_name: cluster
+                    conf: /opt/mprov/slurm/24.11.6-test1/etc/slurm.conf
+                    cpus_on_node: "13"
+                    cpus_per_task: "13"
+                    gpus_on_node: "1"
+                    gtids: "0"
+                    job_account: enalisn1
+                    job_cpus_per_node: "13"
+                    job_end_time: "1768453187"
+                    job_gid: "1035"
+                    job_gpus: "1"
+                    job_id: "764365"
+                    job_name: calm_squad
+                    job_nodelist: l03
+                    job_num_nodes: "1"
+                    job_partition: l40s
+                    job_qos: normal
+                    job_start_time: "1768409987"
+                    job_uid: "2065"
+                    job_user: awynn
+                    jobid: "764365"
+                    localid: "0"
+                    mem_per_node: "76800"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: l03
+                    nprocs: "1"
+                    ntasks: "1"
+                    oom_kill_step: "0"
+                    prio_process: "0"
+                    procid: "0"
+                    submit_dir: /weka/scratch/enalisn1/awynn/llm-risk-control/calm
+                    submit_host: dsailogin
+                    task_pid: "1695835"
+                    tasks_per_node: "1"
+                    topology_addr: l03
+                    topology_addr_pattern: node
+                    tres_per_task: cpu=13
+                startedAt: "2026-01-14T17:00:18.706504Z"
+                writerId: av48ofah3duuwkdmmpon5j9ep5axv8wi
+        m: []
+        python_version: 3.10.12
+        t:
+            "1":
+                - 1
+                - 5
+                - 11
+                - 49
+                - 51
+                - 53
+                - 71
+                - 98
+                - 100
+            "2":
+                - 1
+                - 5
+                - 11
+                - 49
+                - 51
+                - 53
+                - 71
+                - 98
+                - 100
+            "3":
+                - 16
+            "4": 3.10.12
+            "5": 0.23.1
+            "6": 4.28.1
+            "12": 0.23.1
+            "13": linux-x86_64
+dataset:
+    value: squad_v2
+exit_conf_threshold:
+    value: 1
+exit_conf_type:
+    value: softmax
+exit_min_layer:
+    value: 12
+lambda_threshold:
+    value: 1
+model:
+    value: google-t5/t5-large
+type_vocab_reduct:
+    value: true

@@ -1,0 +1,739 @@
+Running with LAMBDA=1.000 and CONTEXT_CONDITION=a
+wandb: Currently logged in as: awynn13 (thenormativitylab) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run wuq5h8i5
+wandb: Tracking run with wandb version 0.23.1
+wandb: Run data is saved locally in /weka/scratch/enalisn1/awynn/llm-risk-control/calm/wandb/run-20260113_165508-wuq5h8i5
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run valiant-wood-41
+wandb: ⭐️ View project at https://wandb.ai/awynn13-johns-hopkins-university/calm-squad
+wandb: 🚀 View run at https://wandb.ai/awynn13-johns-hopkins-university/calm-squad/runs/wuq5h8i5
+01/13/2026 16:55:09 - WARNING - __main__ - Process rank: -1, device: cuda:0, n_gpu: 1distributed training: False, 16-bits training: False
+01/13/2026 16:55:09 - INFO - __main__ - Training/evaluation parameters Seq2SeqTrainingArguments(
+_n_gpu=1,
+adafactor=False,
+adam_beta1=0.9,
+adam_beta2=0.999,
+adam_epsilon=1e-08,
+auto_find_batch_size=False,
+bf16=False,
+bf16_full_eval=False,
+data_seed=None,
+dataloader_drop_last=False,
+dataloader_num_workers=0,
+dataloader_pin_memory=True,
+ddp_bucket_cap_mb=None,
+ddp_find_unused_parameters=None,
+ddp_timeout=1800,
+debug=[],
+deepspeed=None,
+disable_tqdm=False,
+do_eval=True,
+do_predict=False,
+do_train=False,
+eval_accumulation_steps=None,
+eval_delay=0,
+eval_steps=None,
+evaluation_strategy=no,
+fp16=False,
+fp16_backend=auto,
+fp16_full_eval=False,
+fp16_opt_level=O1,
+fsdp=[],
+fsdp_config={'fsdp_min_num_params': 0, 'xla': False, 'xla_fsdp_grad_ckpt': False},
+fsdp_min_num_params=0,
+fsdp_transformer_layer_cls_to_wrap=None,
+full_determinism=False,
+generation_config=None,
+generation_max_length=None,
+generation_num_beams=None,
+gradient_accumulation_steps=1,
+gradient_checkpointing=False,
+greater_is_better=None,
+group_by_length=False,
+half_precision_backend=auto,
+hub_model_id=None,
+hub_private_repo=False,
+hub_strategy=every_save,
+hub_token=<HUB_TOKEN>,
+ignore_data_skip=False,
+include_inputs_for_metrics=True,
+jit_mode_eval=False,
+label_names=None,
+label_smoothing_factor=0.0,
+learning_rate=5e-05,
+length_column_name=length,
+load_best_model_at_end=False,
+local_rank=-1,
+log_level=passive,
+log_level_replica=warning,
+log_on_each_node=True,
+logging_dir=./save/squad_t5-large/runs/Jan13_16-55-07_l06,
+logging_first_step=False,
+logging_nan_inf_filter=True,
+logging_steps=500,
+logging_strategy=steps,
+lr_scheduler_type=linear,
+max_grad_norm=1.0,
+max_steps=-1,
+metric_for_best_model=None,
+mp_parameters=,
+no_cuda=False,
+num_train_epochs=3.0,
+optim=adamw_hf,
+optim_args=None,
+output_dir=./save/squad_t5-large/,
+overwrite_output_dir=True,
+past_index=-1,
+per_device_eval_batch_size=1,
+per_device_train_batch_size=8,
+predict_with_generate=True,
+prediction_loss_only=False,
+push_to_hub=False,
+push_to_hub_model_id=None,
+push_to_hub_organization=None,
+push_to_hub_token=<PUSH_TO_HUB_TOKEN>,
+ray_scope=last,
+remove_unused_columns=True,
+report_to=['wandb'],
+resume_from_checkpoint=None,
+run_name=./save/squad_t5-large/,
+save_on_each_node=False,
+save_safetensors=False,
+save_steps=500,
+save_strategy=steps,
+save_total_limit=None,
+seed=42,
+sharded_ddp=[],
+skip_memory_metrics=True,
+sortish_sampler=False,
+tf32=None,
+torch_compile=False,
+torch_compile_backend=None,
+torch_compile_mode=None,
+torchdynamo=None,
+tpu_metrics_debug=False,
+tpu_num_cores=None,
+use_ipex=False,
+use_legacy_prediction_loop=False,
+use_mps_device=False,
+warmup_ratio=0.0,
+warmup_steps=0,
+weight_decay=0.0,
+xpu_backend=None,
+)
+Using custom data configuration squad_v2-31a8eb8e26a3d2e8
+01/13/2026 16:55:10 - INFO - datasets.builder - Using custom data configuration squad_v2-31a8eb8e26a3d2e8
+Found cached dataset squad_v2 (/scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412)
+01/13/2026 16:55:10 - INFO - datasets.builder - Found cached dataset squad_v2 (/scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412)
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-2b6fdecb746f0c60_*_of_00001.arrow
+01/13/2026 16:55:10 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-2b6fdecb746f0c60_*_of_00001.arrow
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-c3b0952e214d84d2_*_of_00001.arrow
+01/13/2026 16:55:10 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-c3b0952e214d84d2_*_of_00001.arrow
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-f11b9076911a9ca2_*_of_00001.arrow
+01/13/2026 16:55:10 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-f11b9076911a9ca2_*_of_00001.arrow
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-0db87ee704705dcd_*_of_00001.arrow
+01/13/2026 16:55:10 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-0db87ee704705dcd_*_of_00001.arrow
+/scratch/enalisn1/awynn/anaconda3/envs/calm_squad/lib/python3.10/site-packages/huggingface_hub/file_download.py:942: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+[INFO|configuration_utils.py:668] 2026-01-13 16:55:10,961 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 16:55:10,962 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|tokenization_auto.py:502] 2026-01-13 16:55:10,998 >> Could not locate the tokenizer configuration file, will try to use the model config instead.
+[INFO|configuration_utils.py:668] 2026-01-13 16:55:11,045 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 16:55:11,045 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:11,123 >> loading file spiece.model from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/spiece.model
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:11,123 >> loading file tokenizer.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/tokenizer.json
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:11,123 >> loading file added_tokens.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:11,124 >> loading file special_tokens_map.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:11,124 >> loading file tokenizer_config.json from cache at None
+[INFO|configuration_utils.py:668] 2026-01-13 16:55:11,125 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 16:55:11,125 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|modeling_utils.py:2534] 2026-01-13 16:55:11,158 >> loading weights file model.safetensors from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/model.safetensors
+[INFO|configuration_utils.py:575] 2026-01-13 16:55:11,167 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+[INFO|modeling_utils.py:3190] 2026-01-13 16:55:26,005 >> All model checkpoint weights were used when initializing DeployT5ForConditionalGeneration.
+
+[INFO|modeling_utils.py:3198] 2026-01-13 16:55:26,005 >> All the weights of DeployT5ForConditionalGeneration were initialized from the model checkpoint at google-t5/t5-large.
+If your task is similar to the task the model of the checkpoint was trained on, you can already use DeployT5ForConditionalGeneration for predictions without further training.
+[INFO|configuration_utils.py:537] 2026-01-13 16:55:26,056 >> loading configuration file generation_config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/generation_config.json
+[INFO|configuration_utils.py:575] 2026-01-13 16:55:26,056 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+Running tokenizer on validation dataset:   0%|          | 0/10 [00:00<?, ? examples/s]Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-0151096d45f46bf8.arrow
+01/13/2026 16:55:26 - INFO - datasets.arrow_dataset - Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-0151096d45f46bf8.arrow
+Running tokenizer on validation dataset: 100%|██████████| 10/10 [00:00<00:00, 429.34 examples/s]
+Running tokenizer on validation dataset (zeroshot):   0%|          | 0/10 [00:00<?, ? examples/s]Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-5a2f32eb2f30cc11.arrow
+01/13/2026 16:55:26 - INFO - datasets.arrow_dataset - Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-5a2f32eb2f30cc11.arrow
+Running tokenizer on validation dataset (zeroshot): 100%|██████████| 10/10 [00:00<00:00, 870.62 examples/s]
+[INFO|tokenization_auto.py:502] 2026-01-13 16:55:26,889 >> Could not locate the tokenizer configuration file, will try to use the model config instead.
+[INFO|configuration_utils.py:668] 2026-01-13 16:55:26,931 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 16:55:26,932 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:27,010 >> loading file spiece.model from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/spiece.model
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:27,011 >> loading file tokenizer.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/tokenizer.json
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:27,011 >> loading file added_tokens.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:27,011 >> loading file special_tokens_map.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 16:55:27,011 >> loading file tokenizer_config.json from cache at None
+[INFO|configuration_utils.py:668] 2026-01-13 16:55:27,013 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 16:55:27,013 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|configuration_utils.py:668] 2026-01-13 16:55:27,080 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 16:55:27,080 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|modeling_utils.py:2534] 2026-01-13 16:55:27,082 >> loading weights file model.safetensors from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/model.safetensors
+[INFO|configuration_utils.py:575] 2026-01-13 16:55:27,091 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+[INFO|modeling_utils.py:3190] 2026-01-13 16:55:30,940 >> All model checkpoint weights were used when initializing T5ForConditionalGeneration.
+
+[INFO|modeling_utils.py:3198] 2026-01-13 16:55:30,940 >> All the weights of T5ForConditionalGeneration were initialized from the model checkpoint at google-t5/t5-large.
+If your task is similar to the task the model of the checkpoint was trained on, you can already use T5ForConditionalGeneration for predictions without further training.
+[INFO|configuration_utils.py:537] 2026-01-13 16:55:31,020 >> loading configuration file generation_config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/generation_config.json
+[INFO|configuration_utils.py:575] 2026-01-13 16:55:31,020 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+01/13/2026 16:55:31 - INFO - __main__ - *** Evaluate ***
+[INFO|trainer.py:762] 2026-01-13 16:55:31,349 >> The following columns in the evaluation set don't have a corresponding argument in `T5ForConditionalGeneration.forward` and have been ignored: example_id, offset_mapping. If example_id, offset_mapping are not expected by `T5ForConditionalGeneration.forward`,  you can safely ignore this message.
+[INFO|trainer.py:3129] 2026-01-13 16:55:31,351 >> ***** Running Evaluation *****
+[INFO|trainer.py:3131] 2026-01-13 16:55:31,352 >>   Num examples = 10
+[INFO|trainer.py:3134] 2026-01-13 16:55:31,352 >>   Batch size = 1
+[WARNING|logging.py:280] 2026-01-13 16:55:31,355 >> You're using a T5TokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+[INFO|configuration_utils.py:575] 2026-01-13 16:55:31,358 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+  0%|          | 0/10 [00:00<?, ?it/s] 30%|███       | 3/10 [00:00<00:00, 21.81it/s] 60%|██████    | 6/10 [00:00<00:00, 12.17it/s] 80%|████████  | 8/10 [00:00<00:00, 12.27it/s]100%|██████████| 10/10 [00:00<00:00, 11.75it/s][INFO|integrations.py:720] 2026-01-13 16:55:32,473 >> Automatic Weights & Biases logging enabled, to disable set os.environ["WANDB_DISABLED"] = "true"
+100%|██████████| 10/10 [00:00<00:00, 11.05it/s]
+wandb: updating run metadata
+wandb: uploading history steps 1-1, summary, console lines 325-700
+wandb: 
+wandb: Run history:
+wandb:        eval/exact_match ▁
+wandb:                 eval/f1 ▁
+wandb:               eval/loss ▁
+wandb:            eval/runtime ▁
+wandb: eval/samples_per_second ▁
+wandb:   eval/steps_per_second ▁
+wandb:       train/global_step ▁
+wandb: 
+wandb: Run summary:
+wandb:              context_condition answerable
+wandb:               eval/exact_match 0
+wandb:                        eval/f1 0
+wandb:                      eval/loss 4.66533
+wandb:                    eval/losses [0.0, 0.0, 0.0, 0.0,...
+wandb:                   eval/runtime 1.1219
+wandb:        eval/samples_per_second 8.914
+wandb:          eval/steps_per_second 8.914
+wandb:         eval_zeroshot/avg_exit 24
+wandb: eval_zeroshot/eval_exact_match 0
+wandb:                             +2 ...
+wandb: 
+wandb: 🚀 View run valiant-wood-41 at: https://wandb.ai/awynn13-johns-hopkins-university/calm-squad/runs/wuq5h8i5
+wandb: ⭐️ View project at: https://wandb.ai/awynn13-johns-hopkins-university/calm-squad
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260113_165508-wuq5h8i5/logs
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+Type of p.predictions: <class 'numpy.ndarray'>
+Shape of p.predictions: (10, 20)
+Predictions dtype: int64
+First prediction sample: [   0   16  125 1058    1    0    0    0    0    0    0    0    0    0
+    0    0    0    0    0    0]
+Min value: 0
+Max value: 23332
+Unique values sample: [   0    1    3    7    8    9   16   18   58   59   80  125  126  358
+  656  827 1058 1112 3168 7863]
+Vocab size: 32100
+Has negative values: False
+Has values > vocab_size: False
+***** eval_zeroshot metrics *****
+  eval_exact_match        =                                                0.0
+  eval_f1                 =                                                0.0
+  eval_loss               =                                             4.6653
+  eval_losses             = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  eval_runtime            =                                         0:00:01.12
+  eval_samples            =                                                 10
+  eval_samples_per_second =                                              8.914
+  eval_steps_per_second   =                                              8.914

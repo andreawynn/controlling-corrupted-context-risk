@@ -1,0 +1,524 @@
+01/13/2026 21:18:38 - WARNING - __main__ - Process rank: -1, device: cuda:0, n_gpu: 1distributed training: False, 16-bits training: False
+01/13/2026 21:18:38 - INFO - __main__ - Training/evaluation parameters Seq2SeqTrainingArguments(
+_n_gpu=1,
+adafactor=False,
+adam_beta1=0.9,
+adam_beta2=0.999,
+adam_epsilon=1e-08,
+auto_find_batch_size=False,
+bf16=False,
+bf16_full_eval=False,
+data_seed=None,
+dataloader_drop_last=False,
+dataloader_num_workers=0,
+dataloader_pin_memory=True,
+ddp_bucket_cap_mb=None,
+ddp_find_unused_parameters=None,
+ddp_timeout=1800,
+debug=[],
+deepspeed=None,
+disable_tqdm=False,
+do_eval=True,
+do_predict=False,
+do_train=False,
+eval_accumulation_steps=None,
+eval_delay=0,
+eval_steps=None,
+evaluation_strategy=no,
+fp16=False,
+fp16_backend=auto,
+fp16_full_eval=False,
+fp16_opt_level=O1,
+fsdp=[],
+fsdp_config={'fsdp_min_num_params': 0, 'xla': False, 'xla_fsdp_grad_ckpt': False},
+fsdp_min_num_params=0,
+fsdp_transformer_layer_cls_to_wrap=None,
+full_determinism=False,
+generation_config=None,
+generation_max_length=None,
+generation_num_beams=None,
+gradient_accumulation_steps=1,
+gradient_checkpointing=False,
+greater_is_better=None,
+group_by_length=False,
+half_precision_backend=auto,
+hub_model_id=None,
+hub_private_repo=False,
+hub_strategy=every_save,
+hub_token=<HUB_TOKEN>,
+ignore_data_skip=False,
+include_inputs_for_metrics=True,
+jit_mode_eval=False,
+label_names=None,
+label_smoothing_factor=0.0,
+learning_rate=5e-05,
+length_column_name=length,
+load_best_model_at_end=False,
+local_rank=-1,
+log_level=passive,
+log_level_replica=warning,
+log_on_each_node=True,
+logging_dir=./save/squad_t5-large/runs/Jan13_21-18-36_l01,
+logging_first_step=False,
+logging_nan_inf_filter=True,
+logging_steps=500,
+logging_strategy=steps,
+lr_scheduler_type=linear,
+max_grad_norm=1.0,
+max_steps=-1,
+metric_for_best_model=None,
+mp_parameters=,
+no_cuda=False,
+num_train_epochs=3.0,
+optim=adamw_hf,
+optim_args=None,
+output_dir=./save/squad_t5-large/,
+overwrite_output_dir=True,
+past_index=-1,
+per_device_eval_batch_size=1,
+per_device_train_batch_size=8,
+predict_with_generate=True,
+prediction_loss_only=False,
+push_to_hub=False,
+push_to_hub_model_id=None,
+push_to_hub_organization=None,
+push_to_hub_token=<PUSH_TO_HUB_TOKEN>,
+ray_scope=last,
+remove_unused_columns=True,
+report_to=['wandb'],
+resume_from_checkpoint=None,
+run_name=./save/squad_t5-large/,
+save_on_each_node=False,
+save_safetensors=False,
+save_steps=500,
+save_strategy=steps,
+save_total_limit=None,
+seed=42,
+sharded_ddp=[],
+skip_memory_metrics=True,
+sortish_sampler=False,
+tf32=None,
+torch_compile=False,
+torch_compile_backend=None,
+torch_compile_mode=None,
+torchdynamo=None,
+tpu_metrics_debug=False,
+tpu_num_cores=None,
+use_ipex=False,
+use_legacy_prediction_loop=False,
+use_mps_device=False,
+warmup_ratio=0.0,
+warmup_steps=0,
+weight_decay=0.0,
+xpu_backend=None,
+)
+Using custom data configuration squad_v2-31a8eb8e26a3d2e8
+01/13/2026 21:18:39 - INFO - datasets.builder - Using custom data configuration squad_v2-31a8eb8e26a3d2e8
+Found cached dataset squad_v2 (/scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412)
+01/13/2026 21:18:39 - INFO - datasets.builder - Found cached dataset squad_v2 (/scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412)
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-2b6fdecb746f0c60_*_of_00001.arrow
+01/13/2026 21:18:39 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-2b6fdecb746f0c60_*_of_00001.arrow
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-c3b0952e214d84d2_*_of_00001.arrow
+01/13/2026 21:18:39 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-c3b0952e214d84d2_*_of_00001.arrow
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-f11b9076911a9ca2_*_of_00001.arrow
+01/13/2026 21:18:39 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-f11b9076911a9ca2_*_of_00001.arrow
+Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-0db87ee704705dcd_*_of_00001.arrow
+01/13/2026 21:18:39 - INFO - datasets.arrow_dataset - Loading cached processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-0db87ee704705dcd_*_of_00001.arrow
+/scratch/enalisn1/awynn/anaconda3/envs/calm_squad/lib/python3.10/site-packages/huggingface_hub/file_download.py:942: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+[INFO|configuration_utils.py:668] 2026-01-13 21:18:39,547 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 21:18:39,548 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|tokenization_auto.py:502] 2026-01-13 21:18:39,582 >> Could not locate the tokenizer configuration file, will try to use the model config instead.
+[INFO|configuration_utils.py:668] 2026-01-13 21:18:39,633 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 21:18:39,634 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:18:39,764 >> loading file spiece.model from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/spiece.model
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:18:39,765 >> loading file tokenizer.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/tokenizer.json
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:18:39,765 >> loading file added_tokens.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:18:39,765 >> loading file special_tokens_map.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:18:39,765 >> loading file tokenizer_config.json from cache at None
+[INFO|configuration_utils.py:668] 2026-01-13 21:18:39,769 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 21:18:39,769 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|modeling_utils.py:2534] 2026-01-13 21:18:39,807 >> loading weights file model.safetensors from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/model.safetensors
+[INFO|configuration_utils.py:575] 2026-01-13 21:18:40,634 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+[INFO|modeling_utils.py:3190] 2026-01-13 21:18:55,402 >> All model checkpoint weights were used when initializing DeployT5ForConditionalGeneration.
+
+[INFO|modeling_utils.py:3198] 2026-01-13 21:18:55,403 >> All the weights of DeployT5ForConditionalGeneration were initialized from the model checkpoint at google-t5/t5-large.
+If your task is similar to the task the model of the checkpoint was trained on, you can already use DeployT5ForConditionalGeneration for predictions without further training.
+[INFO|configuration_utils.py:537] 2026-01-13 21:18:55,501 >> loading configuration file generation_config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/generation_config.json
+[INFO|configuration_utils.py:575] 2026-01-13 21:18:55,502 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+Running tokenizer on validation dataset:   0%|          | 0/5945 [00:00<?, ? examples/s]Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-c358565f4afba03d.arrow
+01/13/2026 21:18:56 - INFO - datasets.arrow_dataset - Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-c358565f4afba03d.arrow
+Running tokenizer on validation dataset: 100%|██████████| 5945/5945 [00:02<00:00, 2029.30 examples/s]
+Running tokenizer on validation dataset (zeroshot):   0%|          | 0/5945 [00:00<?, ? examples/s]Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-f94da316639d2a8e.arrow
+01/13/2026 21:18:58 - INFO - datasets.arrow_dataset - Caching processed dataset at /scratch/enalisn1/awynn/hf_cache/datasets/squad_v2/squad_v2-31a8eb8e26a3d2e8/0.0.0/3ffb306f725f7d2ce8394bc1873b24868140c412/cache-f94da316639d2a8e.arrow
+Running tokenizer on validation dataset (zeroshot): 100%|██████████| 5945/5945 [00:02<00:00, 2732.35 examples/s]
+[INFO|tokenization_auto.py:502] 2026-01-13 21:19:01,692 >> Could not locate the tokenizer configuration file, will try to use the model config instead.
+[INFO|configuration_utils.py:668] 2026-01-13 21:19:01,741 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 21:19:01,742 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:19:01,853 >> loading file spiece.model from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/spiece.model
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:19:01,854 >> loading file tokenizer.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/tokenizer.json
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:19:01,854 >> loading file added_tokens.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:19:01,855 >> loading file special_tokens_map.json from cache at None
+[INFO|tokenization_utils_base.py:1809] 2026-01-13 21:19:01,855 >> loading file tokenizer_config.json from cache at None
+[INFO|configuration_utils.py:668] 2026-01-13 21:19:01,857 >> loading configuration file config.json from cache at /scratch/enalisn1/awynn/hf_cache/hub/models--google-t5--t5-large/snapshots/150ebc2c4b72291e770f58e6057481c8d2ed331a/config.json
+[INFO|configuration_utils.py:720] 2026-01-13 21:19:01,858 >> Model config T5Config {
+  "_name_or_path": "google-t5/t5-large",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "d_ff": 4096,
+  "d_kv": 64,
+  "d_model": 1024,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 24,
+  "num_heads": 16,
+  "num_layers": 24,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.28.1",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+01/13/2026 21:19:01 - INFO - __main__ - *** Evaluate ***
+
+[INFO|trainer.py:762] 2026-01-13 21:19:01,884 >> The following columns in the evaluation set don't have a corresponding argument in `DeployT5ForConditionalGeneration.forward` and have been ignored: offset_mapping, example_id. If offset_mapping, example_id are not expected by `DeployT5ForConditionalGeneration.forward`,  you can safely ignore this message.
+[WARNING|logging.py:280] 2026-01-13 21:19:01,889 >> You're using a T5TokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+[INFO|configuration_utils.py:575] 2026-01-13 21:19:01,893 >> Generate config GenerationConfig {
+  "_from_model_config": true,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.28.1"
+}
+
+100%|██████████| 6007/6007 [20:20<00:00,  6.80it/s]Traceback (most recent call last):
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 1019, in <module>
+    results, metrics, zs_results, zs_metrics = main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls)
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 834, in main
+    results, metrics = train_eval_predict(trainer, train_data, predict_data, eval_data, zeroshot=False)
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 723, in train_eval_predict
+    output = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/qa_lib/trainer_qa.py", line 146, in evaluate
+    metric = self.compute_metrics(post_preds, prefix=metric_key_prefix)
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 620, in compute_metrics
+    metric_dict = metric.compute(predictions=p.predictions, references=p.label_ids)
+  File "/scratch/enalisn1/awynn/anaconda3/envs/calm_squad/lib/python3.10/site-packages/evaluate/module.py", line 467, in compute
+    output = self._compute(**inputs, **compute_kwargs)
+  File "/scratch/enalisn1/awynn/hf_cache/modules/evaluate_modules/metrics/evaluate-metric--squad/b4e2dbca455821c7367faa26712f378254b69040ebaab90b64bdeb465e4a304d/squad.py", line 110, in _compute
+    score = compute_score(dataset=dataset, predictions=pred_dict)
+  File "/scratch/enalisn1/awynn/hf_cache/modules/evaluate_modules/metrics/evaluate-metric--squad/b4e2dbca455821c7367faa26712f378254b69040ebaab90b64bdeb465e4a304d/compute_score.py", line 67, in compute_score
+    exact_match += metric_max_over_ground_truths(exact_match_score, prediction, ground_truths)
+  File "/scratch/enalisn1/awynn/hf_cache/modules/evaluate_modules/metrics/evaluate-metric--squad/b4e2dbca455821c7367faa26712f378254b69040ebaab90b64bdeb465e4a304d/compute_score.py", line 52, in metric_max_over_ground_truths
+    return max(scores_for_ground_truths)
+ValueError: max() arg is an empty sequence
+Traceback (most recent call last):
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 1019, in <module>
+    results, metrics, zs_results, zs_metrics = main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls)
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 834, in main
+    results, metrics = train_eval_predict(trainer, train_data, predict_data, eval_data, zeroshot=False)
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 723, in train_eval_predict
+    output = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/qa_lib/trainer_qa.py", line 146, in evaluate
+    metric = self.compute_metrics(post_preds, prefix=metric_key_prefix)
+  File "/weka/scratch/enalisn1/awynn/llm-risk-control/calm/src/run_question_answering.py", line 620, in compute_metrics
+    metric_dict = metric.compute(predictions=p.predictions, references=p.label_ids)
+  File "/scratch/enalisn1/awynn/anaconda3/envs/calm_squad/lib/python3.10/site-packages/evaluate/module.py", line 467, in compute
+    output = self._compute(**inputs, **compute_kwargs)
+  File "/scratch/enalisn1/awynn/hf_cache/modules/evaluate_modules/metrics/evaluate-metric--squad/b4e2dbca455821c7367faa26712f378254b69040ebaab90b64bdeb465e4a304d/squad.py", line 110, in _compute
+    score = compute_score(dataset=dataset, predictions=pred_dict)
+  File "/scratch/enalisn1/awynn/hf_cache/modules/evaluate_modules/metrics/evaluate-metric--squad/b4e2dbca455821c7367faa26712f378254b69040ebaab90b64bdeb465e4a304d/compute_score.py", line 67, in compute_score
+    exact_match += metric_max_over_ground_truths(exact_match_score, prediction, ground_truths)
+  File "/scratch/enalisn1/awynn/hf_cache/modules/evaluate_modules/metrics/evaluate-metric--squad/b4e2dbca455821c7367faa26712f378254b69040ebaab90b64bdeb465e4a304d/compute_score.py", line 52, in metric_max_over_ground_truths
+    return max(scores_for_ground_truths)
+ValueError: max() arg is an empty sequence

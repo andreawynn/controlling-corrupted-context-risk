@@ -1,0 +1,13 @@
+{"time":"2026-01-14T17:00:19.002836584Z","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
+{"time":"2026-01-14T17:00:19.192077115Z","level":"INFO","msg":"stream: created new stream","id":"zmgxmabh"}
+{"time":"2026-01-14T17:00:19.192147561Z","level":"INFO","msg":"handler: started","stream_id":"zmgxmabh"}
+{"time":"2026-01-14T17:00:19.192816304Z","level":"INFO","msg":"stream: started","id":"zmgxmabh"}
+{"time":"2026-01-14T17:00:19.192831697Z","level":"INFO","msg":"sender: started","stream_id":"zmgxmabh"}
+{"time":"2026-01-14T17:00:19.192832709Z","level":"INFO","msg":"writer: started","stream_id":"zmgxmabh"}
+{"time":"2026-01-14T17:13:34.778749963Z","level":"ERROR","msg":"HTTP error","status":403,"method":"POST","url":"https://api.wandb.ai/files/awynn13-johns-hopkins-university/calm-squad/zmgxmabh/file_stream"}
+{"time":"2026-01-14T17:13:34.778831906Z","level":"ERROR+4","msg":"filestream: fatal error: filestream: failed to upload: 403 Forbidden path=files/awynn13-johns-hopkins-university/calm-squad/zmgxmabh/file_stream: <!doctype html><meta charset=\"utf-8\"><meta name=viewport content=\"width=device-width, initial-scale=1\"><title>403</title>403 Forbidden"}
+{"time":"2026-01-14T17:21:15.355870572Z","level":"INFO","msg":"stream: closing","id":"zmgxmabh"}
+{"time":"2026-01-14T17:21:15.788128679Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-01-14T17:21:15.788159695Z","level":"INFO","msg":"handler: closed","stream_id":"zmgxmabh"}
+{"time":"2026-01-14T17:21:15.789437653Z","level":"INFO","msg":"sender: closed","stream_id":"zmgxmabh"}
+{"time":"2026-01-14T17:21:15.789447678Z","level":"INFO","msg":"stream: closed","id":"zmgxmabh"}

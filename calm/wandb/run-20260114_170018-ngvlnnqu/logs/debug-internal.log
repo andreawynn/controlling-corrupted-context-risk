@@ -1,0 +1,15 @@
+{"time":"2026-01-14T17:00:18.563740157Z","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
+{"time":"2026-01-14T17:00:18.751585575Z","level":"INFO","msg":"stream: created new stream","id":"ngvlnnqu"}
+{"time":"2026-01-14T17:00:18.751695961Z","level":"INFO","msg":"handler: started","stream_id":"ngvlnnqu"}
+{"time":"2026-01-14T17:00:18.752534629Z","level":"INFO","msg":"stream: started","id":"ngvlnnqu"}
+{"time":"2026-01-14T17:00:18.75264214Z","level":"INFO","msg":"writer: started","stream_id":"ngvlnnqu"}
+{"time":"2026-01-14T17:00:18.75264171Z","level":"INFO","msg":"sender: started","stream_id":"ngvlnnqu"}
+{"time":"2026-01-14T17:00:19.278714193Z","level":"ERROR","msg":"HTTP error","status":403,"method":"POST","url":"https://api.wandb.ai/files/awynn13-johns-hopkins-university/calm-squad/ngvlnnqu/file_stream"}
+{"time":"2026-01-14T17:00:19.278767383Z","level":"ERROR+4","msg":"filestream: fatal error: filestream: failed to upload: 403 Forbidden path=files/awynn13-johns-hopkins-university/calm-squad/ngvlnnqu/file_stream: <!doctype html><meta charset=\"utf-8\"><meta name=viewport content=\"width=device-width, initial-scale=1\"><title>403</title>403 Forbidden"}
+{"time":"2026-01-14T17:21:19.499050804Z","level":"INFO","msg":"flowcontrol: backed up, offloading to disk","recordNumber":5576}
+{"time":"2026-01-14T17:21:19.509405359Z","level":"INFO","msg":"flowcontrol: unblocked","totalOffloaded":1}
+{"time":"2026-01-14T17:21:23.177707739Z","level":"INFO","msg":"stream: closing","id":"ngvlnnqu"}
+{"time":"2026-01-14T17:21:23.680339152Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-01-14T17:21:23.680388877Z","level":"INFO","msg":"handler: closed","stream_id":"ngvlnnqu"}
+{"time":"2026-01-14T17:21:23.682473064Z","level":"INFO","msg":"sender: closed","stream_id":"ngvlnnqu"}
+{"time":"2026-01-14T17:21:23.682485312Z","level":"INFO","msg":"stream: closed","id":"ngvlnnqu"}
