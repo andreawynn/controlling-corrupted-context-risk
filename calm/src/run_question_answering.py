@@ -607,7 +607,8 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     elif "squad" in data_args.dataset_name:
         metric = evaluate.load("squad_v2" if data_args.version_2_with_negative else "squad")
         
-        def compute_metrics(p: EvalPrediction, prefix: str = None, compute_losses: bool = True):   
+        def compute_metrics(p: EvalPrediction, prefix: str = None, compute_losses: bool = True):  
+            print(p) 
             # Check if all references have empty text lists (unanswerable questions)
             all_empty = all(
                 len(ref.get("answers", {}).get("text", [])) == 0 
@@ -786,11 +787,9 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
 
             # Convert to a mutable dictionary
-            if isinstance(eval_output, dict):
-                metrics = eval_output
-            else:
+            if not isinstance(metrics, dict):
                 # It's an EvalLoopOutput object, extract the metrics
-                metrics = eval_output.metrics if hasattr(eval_output, 'metrics') else {}
+                metrics = metrics.metrics if hasattr(metrics, 'metrics') else {}
 
             if additional_args.plotting_logits:
                 data = model.decoder.graph_top_k_list
@@ -825,8 +824,10 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
 
-            trainer.log_metrics("eval" + zeroshot_str, metrics)
-            trainer.save_metrics("eval" + zeroshot_str, metrics)
+            # Filter out 'losses' key before logging (it's too long)
+            metrics_to_log = {k: v for k, v in metrics.items() if k != 'losses' and not k.endswith('_losses')}
+            trainer.log_metrics("eval" + zeroshot_str, metrics_to_log)
+            trainer.save_metrics("eval" + zeroshot_str, metrics_to_log)
 
             # Log to wandb summary; this way we also preserve zeroshot
             wandb.run.summary[f"eval{zeroshot_str}/eval_samples"] = metrics["eval_samples"]
@@ -848,8 +849,10 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             )
             metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
 
-            trainer.log_metrics("predict" + zeroshot_str, metrics)
-            trainer.save_metrics("predict" + zeroshot_str, metrics)
+            # Filter out 'losses' key before logging (it's too long)
+            metrics_to_log = {k: v for k, v in metrics.items() if k != 'losses' and not k.endswith('_losses')}
+            trainer.log_metrics("predict" + zeroshot_str, metrics_to_log)
+            trainer.save_metrics("predict" + zeroshot_str, metrics_to_log)
 
             # Log to wandb summary; this way we also preserve zeroshot
             wandb.run.summary[f"predict{zeroshot_str}/predict_samples"] = metrics["predict_samples"]
@@ -896,6 +899,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     elif data_args.run_zeroshot == 'Y':
         zs_train_data = zs_train_dataset if training_args.do_train else None
         zs_eval_data = zs_eval_dataset if training_args.do_eval else None
+        zs_eval_ex = eval_examples if training_args.do_eval else None
         zs_predict_data = zs_predict_dataset if training_args.do_predict else None
         # For zero-shot use the same CALM model but with zero-shot datasets and lambda=1.0
         trainer = trainer_cls(
@@ -903,7 +907,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             args=training_args,
             train_dataset=zs_train_data,
             eval_dataset=zs_eval_data,
-            eval_examples=eval_ex,
+            eval_examples=zs_eval_ex,
             tokenizer=tokenizer,
             data_collator=data_collator,
             compute_metrics=compute_metrics, # if training_args.predict_with_generate else None,
@@ -923,7 +927,7 @@ if __name__ == "__main__":
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-    os.environ["WANDB_DISABLED"] = "true"
+    os.environ["WANDB_DISABLED"] = "false"
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdditionalArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -969,7 +973,7 @@ if __name__ == "__main__":
         file.write(metrics.get("losses", ""))
         # Also write out the average exit on a new line
         file.write("\n")
-        file.write(wandb.run.summary[f"eval{zeroshot_str}/avg_exit"])
+        file.write(str(wandb.run.summary[f"eval{zeroshot_str}/avg_exit"]))
 
     try:
         wandb.finish()
