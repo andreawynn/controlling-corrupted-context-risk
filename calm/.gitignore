@@ -6,3 +6,6 @@
 /src/wandb/debug-*
 src/wandb/debug-internal.logs
 /src/logs/
+outputs/
+slurm_output/
+wandb/

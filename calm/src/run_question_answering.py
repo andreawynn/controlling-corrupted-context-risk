@@ -606,67 +606,8 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         
     elif "squad" in data_args.dataset_name:
         metric = evaluate.load("squad_v2" if data_args.version_2_with_negative else "squad")
-        
         def compute_metrics(p: EvalPrediction, prefix: str = None, compute_losses: bool = True):  
-            print(p) 
-            # Check if all references have empty text lists (unanswerable questions)
-            all_empty = all(
-                len(ref.get("answers", {}).get("text", [])) == 0 
-                for ref in p.label_ids
-            )
-            
-            if all_empty and len(p.label_ids) > 0:
-                # Handle the case where all questions are unanswerable
-                # Return default metrics for unanswerable questions
-                metric_dict = {
-                    "exact_match": 0.0,
-                    "f1": 0.0,
-                }
-                if data_args.version_2_with_negative:
-                    metric_dict["HasAns_exact"] = 0.0
-                    metric_dict["HasAns_f1"] = 0.0
-                    metric_dict["NoAns_exact"] = 0.0
-                    metric_dict["NoAns_f1"] = 0.0
-                    metric_dict["best_exact"] = 0.0
-                    metric_dict["best_f1"] = 0.0
-                    metric_dict["total"] = len(p.label_ids)
-                    metric_dict["HasAns_total"] = 0
-                    metric_dict["NoAns_total"] = len(p.label_ids)
-            else:
-                try:
-                    metric_dict = metric.compute(predictions=p.predictions, references=p.label_ids)
-                except ValueError as e:
-                    # Handle the case where metric_max_over_ground_truths fails due to empty sequences
-                    if "max() arg is an empty sequence" in str(e):
-                        # Filter out examples with empty ground truths and compute metrics on the rest
-                        filtered_predictions = []
-                        filtered_references = []
-                        for pred, ref in zip(p.predictions, p.label_ids):
-                            if len(ref.get("answers", {}).get("text", [])) > 0:
-                                filtered_predictions.append(pred)
-                                filtered_references.append(ref)
-                        
-                        if len(filtered_predictions) > 0:
-                            metric_dict = metric.compute(predictions=filtered_predictions, references=filtered_references)
-                        else:
-                            # All examples have empty ground truths
-                            metric_dict = {
-                                "exact_match": 0.0,
-                                "f1": 0.0,
-                            }
-                            if data_args.version_2_with_negative:
-                                metric_dict["HasAns_exact"] = 0.0
-                                metric_dict["HasAns_f1"] = 0.0
-                                metric_dict["NoAns_exact"] = 0.0
-                                metric_dict["NoAns_f1"] = 0.0
-                                metric_dict["best_exact"] = 0.0
-                                metric_dict["best_f1"] = 0.0
-                                metric_dict["total"] = len(p.label_ids)
-                                metric_dict["HasAns_total"] = 0
-                                metric_dict["NoAns_total"] = len(p.label_ids)
-                    else:
-                        raise e
-            
+            metric_dict = metric.compute(predictions=p.predictions, references=p.label_ids)
             metric_keys = deepcopy(list(metric_dict.keys()))
             for key in metric_keys:
                 if prefix is not None and prefix not in key:
@@ -674,14 +615,84 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             if compute_losses:
                 losses = []
                 for i in range(len(p.predictions)):
-                    try:
-                        loss_metric = metric.compute(predictions=[p.predictions[i]], references=[p.label_ids[i]])
-                        losses.append(loss_metric.get('f1', 0.0))
-                    except (ValueError, KeyError):
-                        # Handle empty ground truths for individual examples
-                        losses.append(0.0)
+                    losses.append(metric.compute(predictions=[p.predictions[i]], references=[p.label_ids[i]])['f1'])
                 metric_dict['losses'] = str(losses)
             return metric_dict
+        
+        # def compute_metrics(p: EvalPrediction, prefix: str = None, compute_losses: bool = True):  
+        #     # Check if all references have empty text lists (unanswerable questions)
+        #     all_empty = all(
+        #         len(ref.get("answers", {}).get("text", [])) == 0 
+        #         for ref in p.label_ids
+        #     )
+            
+        #     if all_empty and len(p.label_ids) > 0:
+        #         # Handle the case where all questions are unanswerable
+        #         # Return default metrics for unanswerable questions
+        #         metric_dict = {
+        #             "exact_match": 0.0,
+        #             "f1": 0.0,
+        #         }
+        #         if data_args.version_2_with_negative:
+        #             metric_dict["HasAns_exact"] = 0.0
+        #             metric_dict["HasAns_f1"] = 0.0
+        #             metric_dict["NoAns_exact"] = 0.0
+        #             metric_dict["NoAns_f1"] = 0.0
+        #             metric_dict["best_exact"] = 0.0
+        #             metric_dict["best_f1"] = 0.0
+        #             metric_dict["total"] = len(p.label_ids)
+        #             metric_dict["HasAns_total"] = 0
+        #             metric_dict["NoAns_total"] = len(p.label_ids)
+        #     else:
+        #         try:
+        #             metric_dict = metric.compute(predictions=p.predictions, references=p.label_ids)
+        #         except ValueError as e:
+        #             # Handle the case where metric_max_over_ground_truths fails due to empty sequences
+        #             if "max() arg is an empty sequence" in str(e):
+        #                 # Filter out examples with empty ground truths and compute metrics on the rest
+        #                 filtered_predictions = []
+        #                 filtered_references = []
+        #                 for pred, ref in zip(p.predictions, p.label_ids):
+        #                     if len(ref.get("answers", {}).get("text", [])) > 0:
+        #                         filtered_predictions.append(pred)
+        #                         filtered_references.append(ref)
+                        
+        #                 if len(filtered_predictions) > 0:
+        #                     metric_dict = metric.compute(predictions=filtered_predictions, references=filtered_references)
+        #                 else:
+        #                     # All examples have empty ground truths
+        #                     metric_dict = {
+        #                         "exact_match": 0.0,
+        #                         "f1": 0.0,
+        #                     }
+        #                     if data_args.version_2_with_negative:
+        #                         metric_dict["HasAns_exact"] = 0.0
+        #                         metric_dict["HasAns_f1"] = 0.0
+        #                         metric_dict["NoAns_exact"] = 0.0
+        #                         metric_dict["NoAns_f1"] = 0.0
+        #                         metric_dict["best_exact"] = 0.0
+        #                         metric_dict["best_f1"] = 0.0
+        #                         metric_dict["total"] = len(p.label_ids)
+        #                         metric_dict["HasAns_total"] = 0
+        #                         metric_dict["NoAns_total"] = len(p.label_ids)
+        #             else:
+        #                 raise e
+            
+        #     metric_keys = deepcopy(list(metric_dict.keys()))
+        #     for key in metric_keys:
+        #         if prefix is not None and prefix not in key:
+        #             metric_dict['{}_{}'.format(prefix, key)] = metric_dict.pop(key)
+        #     if compute_losses:
+        #         losses = []
+        #         for i in range(len(p.predictions)):
+        #             try:
+        #                 loss_metric = metric.compute(predictions=[p.predictions[i]], references=[p.label_ids[i]])
+        #                 losses.append(loss_metric.get('f1', 0.0))
+        #             except (ValueError, KeyError):
+        #                 # Handle empty ground truths for individual examples
+        #                 losses.append(0.0)
+        #         metric_dict['losses'] = str(losses)
+        #     return metric_dict
         
     else:
         raise NotImplementedError
@@ -927,7 +938,8 @@ if __name__ == "__main__":
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-    os.environ["WANDB_DISABLED"] = "false"
+    #os.environ["WANDB_DISABLED"] = "false"
+    os.environ["WANDB_MODE"] = "disabled"
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdditionalArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
