@@ -150,40 +150,7 @@ sbatch run_icl.slurm
 
 ---
 
-## 4. Adversarial / safety sampling (`adversarial_experiment.py`)
-
-Samples multiple candidate continuations per prompt, scores them with Llama Guard, and saves JSON. Models and tokenizers are configured **inside** `adversarial_experiment.py` (Llama family + LayerSkip variants in the default lists).
-
-**Environment variables**
-
-| Variable | Meaning |
-|----------|---------|
-| `HUGGINGFACE_TOKEN` | Hugging Face API token (target LMs + `meta-llama/LlamaGuard-7b`). |
-| `DATASET_INDEX` | Index into the script’s `datasets` list (default includes `alert`). |
-| `NUM_CANDIDATE_RESPONSES` | Samples per prompt. |
-| `USE_ADVERSARIAL_PROMPTS` | `Y` uses `adv_prompts.json`, `N` uses `prompts.json`. |
-| `EARLY_EXIT` | Flag in the script; full early-exit path is not implemented (branch prints “Not implemented”). |
-| `MODEL_INDEX` | Per-model index or `a` for all models in the script. |
-| `RESULT_FOLDER_NAME` | Output root (e.g. `results_adversarial`). |
-
-**Data layout**
-
-```text
-datasets/adversarial/<dataset>/prompts.json
-datasets/adversarial/<dataset>/adv_prompts.json
-```
-
-Each file should be JSON with a top-level `"prompt"` array. If these paths are missing, create them or change the paths in the script.
-
-**Cluster**
-
-```bash
-sbatch run_adversarial.slurm
-```
-
----
-
-## 5. CALM / early-exit QA (`calm/`)
+## 4. CALM / early-exit QA (`calm/`)
 
 The `calm/` directory is a self-contained project (T5 early exit, SQuAD v2, vocabulary pruning). Install and run from **inside** `calm/`:
 
@@ -214,11 +181,3 @@ python src/run_question_answering.py --model_name_or_path google-t5/t5-large --d
 2. Ensure `all_token_maps.json` contains entries for every `(tokenizer_name)` you use.
 3. Run `compute_calibration_matrices.py` for the desired `N_DEMOS`, datasets, and models (or `DATASET_INDEX=a`, `MODEL_INDEX=a` once lists are set).
 4. Run `icl_experiment.py` with matching `N_DEMOS`, `USE_FAKE_LABELS`, and `USE_CALIBRATION=Y` if you want calibrated logits.
-
----
-
-## Miscellaneous
-
-- **Slurm**: create `slurm_output/` (or change `#SBATCH --output`) before submitting.
-- **`calm/scripts/`** — helper Python script(s) for analysis; run with `python` from the appropriate working directory as needed.
-- **Transformers / torch versions** differ between “latest causal LM” usage at the repo root and the older pinned stack in `environment.yml`; if you hit API errors, align versions or use a dedicated env per subtree.
