@@ -1,0 +1,17 @@
+# System
+.DS_Store
+
+# Secrets
+.env
+**/.env
+
+# Large data/results folders
+calibration/
+calibration_fake_labels/
+results/
+results_fake_labels/
+results_fake_labels_fake_labels/
+scratch/
+
+# Python cache
+__pycache__/
